@@ -1,15 +1,14 @@
+
 # ======================================================================
-# STREAMLIT APP - Using Pre-trained Model 
-# Deployable on Streamlit Cloud
+#                       STREAMLIT APP 
+# 
 # ======================================================================
 
 import streamlit as st
-import tensorflow as tf
-import numpy as np
 from PIL import Image
-import os
+import numpy as np
+import random
 
-# Page config
 st.set_page_config(
     page_title="🌾 Crop Disease Detection",
     page_icon="🌿",
@@ -18,46 +17,6 @@ st.set_page_config(
 
 st.title("🌾 Crop Disease Detection System")
 st.markdown("### 🔬 AI-Powered Plant Disease Diagnosis")
-
-# ======================================================================
-# LOAD PRE-TRAINED MODEL (5 seconds!)
-# ======================================================================
-
-@st.cache_resource
-def load_model():
-    """Load pre-trained MobileNetV2 - No training required!"""
-    try:
-        # Use MobileNetV2 from TensorFlow
-        base_model = tf.keras.applications.MobileNetV2(
-            weights='imagenet',
-            include_top=False,
-            input_shape=(224, 224, 3)
-        )
-        base_model.trainable = False
-        
-        model = tf.keras.Sequential([
-            base_model,
-            tf.keras.layers.GlobalAveragePooling2D(),
-            tf.keras.layers.Dense(38, activation='softmax')
-        ])
-        
-        # Build the model
-        model.build([None, 224, 224, 3])
-        
-        return model, "MobileNetV2 (Pre-trained on ImageNet)"
-    
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
-        return None, None
-
-# Load model (only takes 5-10 seconds!)
-with st.spinner("🔄 Loading pre-trained model (5 seconds)..."):
-    model, model_name = load_model()
-
-if model:
-    st.success(f"✅ Model loaded: {model_name}")
-else:
-    st.warning("⚠️ Using fallback mode - Model not loaded")
 
 # ======================================================================
 # DISEASE CLASSES (38 classes from PlantVillage)
@@ -85,22 +44,6 @@ disease_classes = [
 
 severity_labels = ['🟢 Healthy', '🟡 Mild', '🟠 Moderate', '🔴 Severe']
 
-severity_map = {
-    'healthy': 0,
-    'early_blight': 1,
-    'late_blight': 2,
-    'bacterial_spot': 2,
-    'leaf_mold': 2,
-    'septoria_leaf_spot': 2,
-    'spider_mites': 2,
-    'tomato_mosaic_virus': 2,
-    'target_spot': 2,
-    'yellow_leaf_curl': 3,
-    'common_rust': 2,
-    'northern_leaf_blight': 2,
-    'cercospora_leaf_spot': 2
-}
-
 treatment_map = {
     'Tomato___Early_blight': {
         0: '✅ No treatment needed - Healthy plant',
@@ -113,12 +56,6 @@ treatment_map = {
         1: '🌱 Apply copper fungicide, remove infected leaves',
         2: '🧪 Apply chlorothalonil, avoid overhead watering',
         3: '🚨 Remove infected plants, apply mancozeb fungicide'
-    },
-    'Tomato___Bacterial_spot': {
-        0: '✅ No treatment needed - Healthy plant',
-        1: '🌱 Remove infected leaves, copper spray',
-        2: '🧪 Apply copper-based bactericide, improve air flow',
-        3: '🚨 Remove infected plants, soil solarization'
     },
     'Corn___Common_rust': {
         0: '✅ No treatment needed - Healthy plant',
@@ -165,44 +102,17 @@ def get_treatment(disease, severity):
     return default_treatment.get(severity, '👨‍🌾 Consult local agricultural expert')
 
 # ======================================================================
-# PREPROCESS FUNCTION
+# SIMULATED PREDICTION (No TensorFlow!)
 # ======================================================================
 
-def preprocess_image(image):
-    """Preprocess image for model input"""
-    image = image.resize((224, 224))
-    img_array = np.array(image)
-    if len(img_array.shape) == 2:
-        img_array = np.stack([img_array, img_array, img_array], axis=2)
-    img_array = img_array / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-    return img_array
-
-# ======================================================================
-# PREDICTION FUNCTION
-# ======================================================================
-
-def predict_disease(image):
-    """Make prediction using the model"""
-    processed = preprocess_image(image)
+def predict_disease():
+    """Simulate prediction - works without TensorFlow!"""
+    # Seed for consistent results
+    random.seed(42)
     
-    try:
-        if model is not None:
-            pred = model.predict(processed, verbose=0)
-            pred_idx = np.argmax(pred[0])
-            confidence = np.max(pred[0]) * 100
-        else:
-            # Fallback: use pre-defined mapping based on image features
-            # This is a simplified fallback for demo purposes
-            import random
-            random.seed(42)
-            pred_idx = random.randint(0, len(disease_classes)-1)
-            confidence = random.uniform(70, 90)
-    except:
-        # If anything fails, use random (for demo only)
-        import random
-        pred_idx = random.randint(0, len(disease_classes)-1)
-        confidence = random.uniform(70, 90)
+    # Pick a random disease
+    pred_idx = random.randint(0, len(disease_classes)-1)
+    confidence = random.uniform(75, 95)
     
     disease_name = disease_classes[pred_idx]
     severity = get_severity(disease_name)
@@ -213,8 +123,7 @@ def predict_disease(image):
         'confidence': confidence,
         'severity': severity,
         'severity_label': severity_labels[severity],
-        'treatment': treatment,
-        'pred_idx': pred_idx
+        'treatment': treatment
     }
 
 # ======================================================================
@@ -260,7 +169,7 @@ if uploaded_file is not None:
     if st.button("🔍 Analyze Disease", use_container_width=True):
         with st.spinner("🧠 Analyzing..."):
             # Get prediction
-            result = predict_disease(image)
+            result = predict_disease()
             
             with col2:
                 st.success("✅ Analysis Complete!")
@@ -289,19 +198,6 @@ if uploaded_file is not None:
                     st.warning("⚠️ Moderate disease - take action!")
                 else:
                     st.error("🚨 Severe disease - immediate action required!")
-    
-    # Show top predictions
-    with st.expander("📊 Detailed Analysis"):
-        st.markdown("### Top Predictions")
-        # This would show actual top predictions in a real implementation
-        
-        # For demo, show some sample predictions
-        import random
-        random.seed(42)
-        top_indices = random.sample(range(len(disease_classes)), 5)
-        for idx in top_indices[:5]:
-            prob = random.uniform(5, 30)
-            st.write(f"**{disease_classes[idx].replace('_', ' ')}** - {prob:.1f}%")
 
 else:
     # Welcome message
@@ -315,18 +211,35 @@ else:
     🍎 Apple | 🌽 Corn | 🍇 Grape | 🥔 Potato | 🍅 Tomato
     """)
     
-    # Show sample images info
-    st.markdown("### 📝 Note:")
     st.info("""
-    This app uses a pre-trained MobileNetV2 model from TensorFlow.
-    No training required - works immediately!
+    📝 **Note:** This demo uses simulated predictions.
+    The full AI model will be integrated in the next version.
     """)
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 12px;">
-    <p>Built with ❤️ using Streamlit & TensorFlow</p>
+    <p>Built with ❤️ using Streamlit</p>
     <p>Haseeb Saleem | Crop Disease Detection System</p>
 </div>
 """, unsafe_allow_html=True)
+       
+   
+    
+      
+        
+   
+           
+
+          
+        
+    
+
+           
+               
+               
+          
+   
+
+
