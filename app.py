@@ -324,12 +324,4 @@ else:
     showing the entire leaf surface.
     """)
 
-# Footer - All about YOU!
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #666; font-size: 12px;">
-    <p>Developed by: Haseeb Saleem</p>
-    <p>GCU, Lahore | Software Engineering</p>
-    <p>EfficientNetB0 | 82.82% Accuracy</p>
-</div>
-""", unsafe_allow_html=True)
+
