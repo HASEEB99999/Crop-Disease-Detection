@@ -1,12 +1,17 @@
 # ======================================================================
-# CROP DISEASE DETECTION APP - NO TENSORFLOW REQUIRED!
-# Works perfectly on Python 3.14
+# CROP DISEASE DETECTION APP - WITH WORKING MODEL
 # ======================================================================
 
 import streamlit as st
 from PIL import Image
 import numpy as np
-import random
+import tensorflow as tf
+import json
+from tensorflow.keras import backend as K
+
+# ======================================================================
+# PAGE CONFIGURATION
+# ======================================================================
 
 st.set_page_config(
     page_title="🌾 Crop Disease Detection",
@@ -18,7 +23,45 @@ st.title("🌾 Crop Disease Detection System")
 st.markdown("### 🔬 AI-Powered Plant Disease Diagnosis")
 
 # ======================================================================
-# DISEASE CLASSES (38 classes)
+# LOAD MODEL
+# ======================================================================
+
+@st.cache_resource
+def load_model():
+    """Load the trained model"""
+    try:
+        # Define custom loss for loading
+        def combined_loss():
+            def loss(y_true, y_pred):
+                return K.constant(0.0)
+            return loss
+        
+        custom_objects = {'loss': combined_loss()}
+        
+        model = tf.keras.models.load_model(
+            'efficientnetb0_best.h5',
+            custom_objects=custom_objects,
+            compile=False
+        )
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None
+
+# ======================================================================
+# LOAD METADATA
+# ======================================================================
+
+@st.cache_resource
+def load_metadata():
+    try:
+        with open('model_metadata.json') as f:
+            return json.load(f)
+    except:
+        return None
+
+# ======================================================================
+# DISEASE CLASSES
 # ======================================================================
 
 disease_classes = [
@@ -43,100 +86,105 @@ severity_labels = ['🟢 Healthy', '🟡 Mild', '🟠 Moderate', '🔴 Severe']
 # TREATMENT RECOMMENDATIONS
 # ======================================================================
 
-treatment_map = {
-    'Tomato___Early_blight': {
-        0: '✅ No treatment needed - Healthy plant',
-        1: '🌱 Remove affected leaves, apply copper-based fungicide',
-        2: '🧪 Apply chlorothalonil fungicide, improve air circulation',
-        3: '🚨 Remove infected plants, apply fungicide, crop rotation'
-    },
-    'Tomato___Late_blight': {
-        0: '✅ No treatment needed - Healthy plant',
-        1: '🌱 Apply copper fungicide, remove infected leaves',
-        2: '🧪 Apply chlorothalonil, avoid overhead watering',
-        3: '🚨 Remove infected plants, apply mancozeb fungicide'
-    },
-    'Corn___Common_rust': {
-        0: '✅ No treatment needed - Healthy plant',
-        1: '🌱 Apply fungicide, remove infected leaves',
-        2: '🧪 Apply azoxystrobin fungicide, improve air flow',
-        3: '🚨 Apply systemic fungicide, remove severely infected plants'
-    },
-    'Potato___Late_blight': {
-        0: '✅ No treatment needed - Healthy plant',
-        1: '🌱 Apply copper fungicide, improve drainage',
-        2: '🧪 Apply chlorothalonil, remove infected leaves',
-        3: '🚨 Remove infected plants, apply mancozeb fungicide'
-    },
-    'Grape___Black_rot': {
-        0: '✅ No treatment needed - Healthy plant',
-        1: '🌱 Remove infected leaves, apply fungicide',
-        2: '🧪 Apply myclobutanil, improve air circulation',
-        3: '🚨 Apply systemic fungicide, remove severely affected vines'
-    }
-}
-
-default_treatment = {
-    0: '✅ Plant is healthy - Continue regular care',
-    1: '🌱 Monitor plant health, consider preventive measures',
-    2: '🧪 Apply appropriate fungicide, consult local expert',
-    3: '🚨 Remove affected parts, apply treatment immediately'
-}
-
 def get_severity(disease_name):
-    disease_lower = disease_name.lower()
-    if 'healthy' in disease_lower:
+    if 'healthy' in disease_name.lower():
         return 0
-    elif 'severe' in disease_lower or 'late' in disease_lower:
+    elif 'severe' in disease_name.lower() or 'late' in disease_name.lower():
         return 3
-    elif 'early' in disease_lower or 'mild' in disease_lower:
+    elif 'early' in disease_name.lower():
         return 1
-    else:
-        return 2
+    return 2
 
 def get_treatment(disease, severity):
-    if disease in treatment_map:
-        if severity in treatment_map[disease]:
-            return treatment_map[disease][severity]
-    return default_treatment.get(severity, '👨‍🌾 Consult local agricultural expert')
+    treatments = {
+        'Tomato___Early_blight': {
+            1: '🌱 Remove affected leaves, apply copper-based fungicide',
+            2: '🧪 Apply chlorothalonil fungicide, improve air circulation',
+            3: '🚨 Remove infected plants, apply fungicide, crop rotation'
+        },
+        'Tomato___Late_blight': {
+            1: '🌱 Apply copper fungicide, remove infected leaves',
+            2: '🧪 Apply chlorothalonil, avoid overhead watering',
+            3: '🚨 Remove infected plants, apply mancozeb fungicide'
+        },
+        'Corn___Common_rust': {
+            1: '🌱 Apply fungicide, remove infected leaves',
+            2: '🧪 Apply azoxystrobin fungicide, improve air flow',
+            3: '🚨 Apply systemic fungicide, remove severely infected plants'
+        },
+        'Apple___Apple_scab': {
+            1: '🌱 Apply organic sulfur spray, remove infected leaves',
+            2: '🧪 Apply fungicide (myclobutanil), prune affected branches',
+            3: '🚨 Apply systemic fungicide, remove severely infected branches'
+        }
+    }
+    
+    default = {
+        0: '✅ Plant is healthy - Continue regular care',
+        1: '🌱 Monitor plant health, consider preventive measures',
+        2: '🧪 Apply appropriate fungicide, consult local expert',
+        3: '🚨 Remove affected parts, apply treatment immediately'
+    }
+    
+    if disease in treatments and severity in treatments[disease]:
+        return treatments[disease][severity]
+    return default.get(severity, '👨‍🌾 Consult local expert')
 
 # ======================================================================
-# PREDICTION FUNCTION (No TensorFlow!)
+# PREPROCESS FUNCTION
 # ======================================================================
 
-def predict_disease():
-    """Simulate prediction - works without TensorFlow!"""
-    # Seed for consistent results
-    random.seed(42)
+def preprocess_image(image):
+    image = image.resize((224, 224))
+    img_array = np.array(image)
+    if len(img_array.shape) == 2:
+        img_array = np.stack([img_array, img_array, img_array], axis=2)
+    img_array = img_array / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+    return img_array
+
+def predict_disease(image, model, metadata=None):
+    processed = preprocess_image(image)
+    predictions = model.predict(processed, verbose=0)
     
-    # Pick a random disease
-    pred_idx = random.randint(0, len(disease_classes)-1)
-    confidence = random.uniform(75, 95)
+    # Model has 3 outputs: disease, stage, days
+    disease_pred = predictions[0]
+    stage_pred = predictions[1] if len(predictions) > 1 else None
+    days_pred = predictions[2] if len(predictions) > 2 else None
     
-    disease_name = disease_classes[pred_idx]
-    severity = get_severity(disease_name)
-    treatment = get_treatment(disease_name, severity)
+    disease_idx = np.argmax(disease_pred[0])
+    confidence = np.max(disease_pred[0]) * 100
     
-    return {
+    disease_name = disease_classes[disease_idx]
+    
+    result = {
         'disease': disease_name,
         'confidence': confidence,
-        'severity': severity,
-        'severity_label': severity_labels[severity],
-        'treatment': treatment
+        'severity': get_severity(disease_name)
     }
+    
+    if stage_pred is not None:
+        stage_idx = np.argmax(stage_pred[0])
+        result['stage'] = ['Healthy', 'Early', 'Mid', 'Late'][stage_idx]
+        result['stage_idx'] = stage_idx
+    
+    if days_pred is not None:
+        result['days_infected'] = float(days_pred[0][0])
+    
+    return result
 
 # ======================================================================
-# STREAMLIT UI
+# MAIN APP
 # ======================================================================
 
-# Sidebar
 with st.sidebar:
     st.header("📋 About")
     st.markdown("""
-    - **Model:** MobileNetV2 (Pre-trained)
-    - **Crops:** Apple, Corn, Grape, Potato, Tomato
+    - **Model:** EfficientNetB0 (Trained)
+    - **Accuracy:** 82.82%
+    - **Crops:** 14 species
     - **Diseases:** 38 classes
-    - **Features:** Disease detection, severity, treatment
+    - **Training:** 87,000+ images
     """)
     
     st.header("📊 Severity Levels")
@@ -147,82 +195,101 @@ with st.sidebar:
     st.markdown("""
     1. Upload a leaf image
     2. Click 'Analyze Disease'
-    3. Get diagnosis instantly!
+    3. Get AI diagnosis!
     """)
 
-# Main content
+# Load model
+with st.spinner("🔄 Loading AI Model..."):
+    model = load_model()
+    
+    if model is None:
+        st.error("❌ Could not load model. Please check the model file.")
+        st.stop()
+    
+    st.success("✅ Model loaded successfully!")
+
 uploaded_file = st.file_uploader(
     "📤 Upload a leaf image",
     type=['jpg', 'jpeg', 'png', 'bmp']
 )
 
 if uploaded_file is not None:
-    # Display uploaded image
     col1, col2 = st.columns([1, 2])
     
     with col1:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Leaf", use_container_width=True)
     
-    # Analyze button
     if st.button("🔍 Analyze Disease", use_container_width=True):
         with st.spinner("🧠 Analyzing..."):
-            # Get prediction
-            result = predict_disease()
+            result = predict_disease(image, model)
             
-            with col2:
-                st.success("✅ Analysis Complete!")
-                st.markdown("---")
+            if result:
+                treatment = get_treatment(result['disease'], result['severity'])
                 
-                # Disease
-                st.markdown(f"### 🦠 Disease Detected")
-                st.markdown(f"**{result['disease'].replace('_', ' ')}**")
-                st.progress(result['confidence']/100)
-                st.caption(f"Confidence: {result['confidence']:.1f}%")
-                
-                # Severity
-                st.markdown(f"### 📊 Severity Level")
-                st.markdown(f"**{result['severity_label']}**")
-                
-                # Treatment
-                st.markdown(f"### 💊 Treatment")
-                st.info(result['treatment'])
-                
-                # Recommendations based on severity
-                if result['severity'] == 0:
-                    st.success("✅ Plant is healthy! Continue regular care.")
-                elif result['severity'] == 1:
-                    st.warning("⚠️ Early stage disease - act soon!")
-                elif result['severity'] == 2:
-                    st.warning("⚠️ Moderate disease - take action!")
-                else:
-                    st.error("🚨 Severe disease - immediate action required!")
+                with col2:
+                    st.success("✅ Analysis Complete!")
+                    st.markdown("---")
+                    
+                    st.markdown(f"### 🦠 Disease Detected")
+                    st.markdown(f"**{result['disease'].replace('_', ' ')}**")
+                    st.progress(result['confidence']/100)
+                    st.caption(f"Confidence: {result['confidence']:.1f}%")
+                    
+                    st.markdown(f"### 📊 Severity Level")
+                    st.markdown(f"**{severity_labels[result['severity']]}**")
+                    
+                    if 'stage' in result:
+                        st.markdown(f"### 📈 Disease Stage")
+                        st.markdown(f"**{result['stage']}**")
+                    
+                    if 'days_infected' in result:
+                        st.caption(f"Estimated days infected: ~{result['days_infected']:.1f} days")
+                    
+                    st.markdown(f"### 💊 Treatment")
+                    st.info(treatment)
+                    
+                    if result['severity'] == 0:
+                        st.success("✅ Plant is healthy!")
+                    elif result['severity'] == 1:
+                        st.warning("⚠️ Early stage - act soon!")
+                    elif result['severity'] == 2:
+                        st.warning("⚠️ Moderate - take action!")
+                    else:
+                        st.error("🚨 Severe - immediate action!")
 
 else:
-    # Welcome message
     st.markdown("""
-    ### 📸 How to Use This App:
-    1. **Upload** a leaf image using the button above
-    2. **Click** "Analyze Disease" button
-    3. **Get** instant diagnosis with treatment advice!
+    ### 📸 How to Use:
+    1. **Upload** a leaf image
+    2. **Click** "Analyze Disease"
+    3. **Get** AI diagnosis!
     
     ### Supported Crops:
     🍎 Apple | 🌽 Corn | 🍇 Grape | 🥔 Potato | 🍅 Tomato
     """)
-    
-    st.info("""
-    📝 **Note:** This is a demonstration version.
-    The full AI model will be integrated in the next update.
-    """)
 
-# Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 12px;">
-    <p>Built with ❤️ using Streamlit</p>
-    <p>Haseeb Saleem | Crop Disease Detection System</p>
+    <p>Haseeb Saleem | EfficientNetB0 - 82.82% Accuracy</p>
 </div>
 """, unsafe_allow_html=True)
+
+
+       
+        
+
+    
+
+
+    
+
+    
+  
+           
+              
+    
 
         
     
