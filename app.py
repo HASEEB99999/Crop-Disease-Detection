@@ -1,5 +1,5 @@
 # ======================================================================
-# CROP DISEASE DETECTION APP - WITH BETTER ERROR HANDLING
+# CROP DISEASE DETECTION APP - WITH CONFIDENCE FILTERING
 # ======================================================================
 
 import streamlit as st
@@ -22,7 +22,7 @@ st.set_page_config(
 )
 
 st.title("🌾 Crop Disease Detection System")
-st.markdown("### 🔬 Powered by Hugging Face AI - 82.82% Accuracy")
+st.markdown("### 🔬 AI-Powered Plant Disease Diagnosis")
 
 # ======================================================================
 # YOUR HUGGING FACE TOKEN
@@ -102,21 +102,19 @@ def get_treatment(disease, severity):
     return default.get(severity, '👨‍🌾 Consult local expert')
 
 # ======================================================================
-# PREDICTION FUNCTION WITH RETRY
+# PREDICTION FUNCTION WITH RETRY AND CONFIDENCE
 # ======================================================================
 
-def predict_with_huggingface(image, max_retries=3):
+def predict_with_huggingface(image):
     """
-    Call Hugging Face API with retry logic
+    Call Hugging Face API for real prediction
     """
-    for attempt in range(max_retries):
+    for attempt in range(3):
         try:
-            # Convert image to bytes
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format='JPEG')
             img_byte_arr = img_byte_arr.getvalue()
             
-            # Use the correct API endpoint
             api_url = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
             
             headers = {
@@ -124,12 +122,10 @@ def predict_with_huggingface(image, max_retries=3):
                 "Content-Type": "application/json"
             }
             
-            # Try different payload formats
             payload = {
                 "inputs": base64.b64encode(img_byte_arr).decode('utf-8')
             }
             
-            # Make request with timeout
             response = requests.post(
                 api_url, 
                 headers=headers, 
@@ -140,86 +136,105 @@ def predict_with_huggingface(image, max_retries=3):
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 503:
-                # Model is loading, wait and retry
-                st.info(f"⏳ Model is loading... Attempt {attempt + 1}/{max_retries}")
                 time.sleep(5)
                 continue
             else:
-                st.warning(f"API Error (Attempt {attempt + 1}): {response.status_code}")
-                if response.status_code == 401:
-                    st.error("❌ Invalid API token. Please check your token.")
-                    return None
-                time.sleep(2)
+                return None
                 
-        except requests.exceptions.ConnectionError:
-            st.warning(f"⚠️ Connection error (Attempt {attempt + 1}/{max_retries})")
-            time.sleep(3)
-            continue
-        except requests.exceptions.Timeout:
-            st.warning(f"⏱️ Timeout (Attempt {attempt + 1}/{max_retries})")
-            time.sleep(3)
-            continue
-        except Exception as e:
-            st.warning(f"⚠️ Error: {str(e)[:100]} (Attempt {attempt + 1}/{max_retries})")
+        except:
             time.sleep(2)
             continue
     
     return None
 
 # ======================================================================
-# FALLBACK: PREDICT USING A DIFFERENT FREE MODEL
+# GET TOP PREDICTIONS
 # ======================================================================
 
-def predict_with_alternative_api(image):
+def get_top_predictions(predictions, top_k=5):
     """
-    Use a different, simpler model that doesn't require an API key
+    Get top k predictions with probabilities
     """
-    try:
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='JPEG')
-        img_byte_arr = img_byte_arr.getvalue()
-        
-        # Use a public model
-        api_url = "https://api-inference.huggingface.co/models/google/vit-base-patch16-224"
-        
-        headers = {
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "inputs": base64.b64encode(img_byte_arr).decode('utf-8')
-        }
-        
-        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
-        
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except:
-        return None
+    pred_array = np.array(predictions[0])
+    top_indices = np.argsort(pred_array)[-top_k:][::-1]
+    top_confidences = pred_array[top_indices] * 100
+    
+    results = []
+    for idx, conf in zip(top_indices, top_confidences):
+        disease = disease_classes[idx]
+        results.append({
+            'disease': disease,
+            'confidence': conf,
+            'is_healthy': 'healthy' in disease.lower()
+        })
+    
+    return results
 
 # ======================================================================
-# SIMULATED PREDICTION (FINAL FALLBACK)
+# ANALYZE PREDICTION WITH CONFIDENCE
 # ======================================================================
 
-def simulated_prediction():
-    """Fallback when all APIs fail"""
-    import random
-    random.seed(42)
+def analyze_prediction(top_predictions):
+    """
+    Analyze top predictions to make a confident diagnosis
+    """
+    if not top_predictions:
+        return None
     
-    # Select a disease based on realistic distribution
-    if random.random() < 0.3:
-        idx = 3  # Healthy
-    else:
-        idx = random.randint(0, len(disease_classes)-1)
+    # Get the top prediction
+    top = top_predictions[0]
+    second = top_predictions[1] if len(top_predictions) > 1 else None
     
-    disease = disease_classes[idx]
-    confidence = random.uniform(75, 95)
+    # Rules for confident prediction
     
+    # 1. If top prediction is healthy with high confidence
+    if top['is_healthy'] and top['confidence'] > 85:
+        return {
+            'disease': top['disease'],
+            'confidence': top['confidence'],
+            'severity': 0,
+            'is_certain': True,
+            'message': '✅ Confident: Plant appears healthy'
+        }
+    
+    # 2. If top prediction is disease with high confidence
+    if not top['is_healthy'] and top['confidence'] > 85:
+        return {
+            'disease': top['disease'],
+            'confidence': top['confidence'],
+            'severity': get_severity(top['disease']),
+            'is_certain': True,
+            'message': '✅ Confident: Disease detected'
+        }
+    
+    # 3. If top prediction is disease but second is healthy with close confidence
+    if (not top['is_healthy'] and second and second['is_healthy'] and 
+        abs(top['confidence'] - second['confidence']) < 15):
+        return {
+            'disease': 'Uncertain',
+            'confidence': top['confidence'],
+            'severity': 0,
+            'is_certain': False,
+            'message': '⚠️ Uncertain: Please upload a clearer image'
+        }
+    
+    # 4. If confidence is low
+    if top['confidence'] < 70:
+        return {
+            'disease': 'Need Better Image',
+            'confidence': top['confidence'],
+            'severity': 0,
+            'is_certain': False,
+            'message': '⚠️ Low confidence: Please upload a clearer image'
+        }
+    
+    # 5. Default: use top prediction but mark as uncertain
     return {
-        'disease': disease,
-        'confidence': confidence,
-        'severity': get_severity(disease)
+        'disease': top['disease'],
+        'confidence': top['confidence'],
+        'severity': get_severity(top['disease']),
+        'is_certain': True,
+        'message': '✅ Diagnosis complete'
     }
 
 # ======================================================================
@@ -236,8 +251,17 @@ with st.sidebar:
     - **Diseases:** 38 classes
     """)
     
-    st.header("🔑 API Status")
-    st.success("✅ API Token Connected")
+    st.header("📊 Severity Levels")
+    for label in severity_labels:
+        st.markdown(f"{label}")
+    
+    st.header("💡 Tips")
+    st.markdown("""
+    1. Use clear, well-lit images
+    2. Show the entire leaf
+    3. Avoid shadows
+    4. Multiple angles help
+    """)
 
 # Main content
 uploaded_file = st.file_uploader(
@@ -255,118 +279,78 @@ if uploaded_file is not None:
     if st.button("🔍 Analyze Disease", use_container_width=True):
         with st.spinner("🧠 Analyzing with AI..."):
             
-            # Try real prediction first
-            result = None
+            # Get prediction
+            predictions = predict_with_huggingface(image)
             
-            # Try Hugging Face API
-            api_result = predict_with_huggingface(image)
-            
-            if api_result:
-                try:
-                    # Parse the result
-                    if isinstance(api_result, list) and len(api_result) > 0:
-                        pred = api_result[0]
-                        if isinstance(pred, list):
-                            pred_array = np.array(pred)
-                            idx = np.argmax(pred_array)
-                            confidence = np.max(pred_array) * 100
-                            
-                            if idx < len(disease_classes):
-                                disease = disease_classes[idx]
-                            else:
-                                disease = f"Disease_{idx}"
-                            
-                            result = {
-                                'disease': disease,
-                                'confidence': confidence,
-                                'severity': get_severity(disease)
-                            }
-                except:
-                    pass
-            
-            # If API failed, try alternative
-            if result is None:
-                st.info("🔄 Trying alternative API...")
-                alt_result = predict_with_alternative_api(image)
-                if alt_result:
-                    try:
-                        pred = alt_result[0]
-                        idx = np.argmax(pred)
-                        confidence = np.max(pred) * 100
-                        disease = disease_classes[idx % len(disease_classes)]
-                        result = {
-                            'disease': disease,
-                            'confidence': confidence,
-                            'severity': get_severity(disease)
-                        }
-                    except:
-                        pass
-            
-            # If all APIs fail, use simulated
-            if result is None:
-                st.warning("ℹ️ Using simulated prediction (APIs unavailable)")
-                result = simulated_prediction()
-            
-            # Display results
-            if result:
-                treatment = get_treatment(result['disease'], result['severity'])
+            if predictions:
+                # Get top predictions
+                top_predictions = get_top_predictions(predictions, top_k=5)
                 
-                with col2:
-                    st.success("✅ Analysis Complete!")
-                    st.markdown("---")
-                    
-                    st.markdown(f"### 🦠 Disease Detected")
-                    st.markdown(f"**{result['disease'].replace('_', ' ')}**")
-                    st.progress(result['confidence']/100)
-                    st.caption(f"Confidence: {result['confidence']:.1f}%")
-                    
-                    st.markdown(f"### 📊 Severity Level")
-                    st.markdown(f"**{severity_labels[result['severity']]}**")
-                    
-                    st.markdown(f"### 💊 Treatment")
-                    st.info(treatment)
-                    
-                    if result['severity'] == 0:
-                        st.success("✅ Plant is healthy!")
-                    elif result['severity'] == 1:
-                        st.warning("⚠️ Early stage - act soon!")
-                    elif result['severity'] == 2:
-                        st.warning("⚠️ Moderate - take action!")
-                    else:
-                        st.error("🚨 Severe - immediate action!")
+                # Analyze the prediction
+                result = analyze_prediction(top_predictions)
+                
+                if result:
+                    with col2:
+                        st.success("✅ Analysis Complete!")
+                        st.markdown("---")
+                        
+                        # Show the main result
+                        st.markdown(f"### 🦠 Diagnosis")
+                        
+                        if result['disease'] == 'Uncertain' or result['disease'] == 'Need Better Image':
+                            st.warning(result['message'])
+                            st.info("📸 Try uploading a clearer image of the leaf")
+                        else:
+                            st.markdown(f"**{result['disease'].replace('_', ' ')}**")
+                            st.progress(result['confidence']/100)
+                            st.caption(f"Confidence: {result['confidence']:.1f}%")
+                            
+                            st.markdown(f"### 📊 Severity Level")
+                            st.markdown(f"**{severity_labels[result['severity']]}**")
+                            
+                            treatment = get_treatment(result['disease'], result['severity'])
+                            st.markdown(f"### 💊 Treatment")
+                            st.info(treatment)
+                            
+                            if result['severity'] == 0:
+                                st.success("✅ Plant is healthy!")
+                            elif result['severity'] == 1:
+                                st.warning("⚠️ Early stage - act soon!")
+                            elif result['severity'] == 2:
+                                st.warning("⚠️ Moderate - take action!")
+                            else:
+                                st.error("🚨 Severe - immediate action!")
+                        
+                        st.markdown("---")
+                        st.markdown("### 📊 Top Predictions")
+                        for i, pred in enumerate(top_predictions[:3], 1):
+                            icon = "🟢" if pred['is_healthy'] else "🔴"
+                            st.write(f"{i}. {icon} {pred['disease'].replace('_', ' ')} - {pred['confidence']:.1f}%")
+            else:
+                st.error("❌ Prediction failed. Please try again.")
 
 else:
     st.markdown("""
     ### 📸 How to Use:
     1. **Upload** a leaf image
     2. **Click** "Analyze Disease"
-    3. **Get** 82.82% accurate diagnosis!
+    3. **Get** accurate diagnosis!
     
     ### Supported Crops:
     🍎 Apple | 🌽 Corn | 🍇 Grape | 🥔 Potato | 🍅 Tomato
     """)
     
     st.info("""
-    📝 **This app uses the best plant disease model from Hugging Face.**
-    Making REAL predictions with 82.82% accuracy!
+    📝 **This app uses AI to detect plant diseases.**
+    For best results, use clear, well-lit images of the entire leaf.
     """)
 
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 12px;">
-    <p>Haseeb Saleem | Powered by Hugging Face - 82.82% Accuracy</p>
+    <p>Haseeb Saleem | Powered by AI</p>
 </div>
 """, unsafe_allow_html=True)
-    
-
-    
-  
-           
-              
-    
-
-        
-    
 
            
                
