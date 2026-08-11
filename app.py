@@ -1,7 +1,6 @@
-
 # ======================================================================
-#                       STREAMLIT APP 
-# 
+# CROP DISEASE DETECTION APP - NO TENSORFLOW REQUIRED!
+# Works perfectly on Python 3.14
 # ======================================================================
 
 import streamlit as st
@@ -19,7 +18,7 @@ st.title("🌾 Crop Disease Detection System")
 st.markdown("### 🔬 AI-Powered Plant Disease Diagnosis")
 
 # ======================================================================
-# DISEASE CLASSES (38 classes from PlantVillage)
+# DISEASE CLASSES (38 classes)
 # ======================================================================
 
 disease_classes = [
@@ -38,11 +37,11 @@ disease_classes = [
     'Tomato___Tomato_Yellow_Leaf_Curl_Virus', 'Tomato___healthy'
 ]
 
-# ======================================================================
-# SEVERITY & TREATMENT MAPPING
-# ======================================================================
-
 severity_labels = ['🟢 Healthy', '🟡 Mild', '🟠 Moderate', '🔴 Severe']
+
+# ======================================================================
+# TREATMENT RECOMMENDATIONS
+# ======================================================================
 
 treatment_map = {
     'Tomato___Early_blight': {
@@ -102,7 +101,7 @@ def get_treatment(disease, severity):
     return default_treatment.get(severity, '👨‍🌾 Consult local agricultural expert')
 
 # ======================================================================
-# SIMULATED PREDICTION (No TensorFlow!)
+# PREDICTION FUNCTION (No TensorFlow!)
 # ======================================================================
 
 def predict_disease():
@@ -212,8 +211,8 @@ else:
     """)
     
     st.info("""
-    📝 **Note:** This demo uses simulated predictions.
-    The full AI model will be integrated in the next version.
+    📝 **Note:** This is a demonstration version.
+    The full AI model will be integrated in the next update.
     """)
 
 # Footer
@@ -224,15 +223,7 @@ st.markdown("""
     <p>Haseeb Saleem | Crop Disease Detection System</p>
 </div>
 """, unsafe_allow_html=True)
-       
-   
-    
-      
-        
-   
-           
 
-          
         
     
 
