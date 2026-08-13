@@ -1,8 +1,8 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - FOOLPROOF VERSION
+# 🌾 CROP DISEASE DETECTION SYSTEM - FINAL FIX
 # Detects ALL leaves: Green, Yellow, Rusty, Rotten, Brown!
-# Rejects humans, animals, and other objects!
-# Pakistan Agriculture AI - Protecting Our Future
+# Rejects humans!
+# Pakistan Agriculture AI
 # ======================================================================
 
 import streamlit as st
@@ -366,14 +366,15 @@ def get_treatment(disease, severity):
     return default.get(severity, 'Consult local expert')
 
 # ======================================================================
-# FOOLPROOF LEAF DETECTION - DETECTS ALL LEAVES!
+# PERFECT LEAF DETECTION - FIXED!
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    FOOLPROOF leaf detection:
-    - Rule 1: If it has texture AND is NOT human skin -> It's a leaf!
-    - This detects ALL leaves: green, yellow, rusty, rotten, brown!
+    PERFECT leaf detection:
+    - ANY color (green, yellow, brown, red) is fine.
+    - ANY texture is fine (smooth leaves also have some texture).
+    - Rejects humans based on skin tone and smoothness.
     """
     img_array = np.array(image)
     
@@ -397,15 +398,12 @@ def is_leaf_image(image):
     blue_std = np.std(blue)
     
     # ====================================================================
-    # STEP 1: REJECT HUMANS (using skin detection)
+    # STEP 1: REJECT HUMANS (Most important)
     # ====================================================================
     
     red_green_diff = abs(red_mean - green_mean)
     
-    # Human skin characteristics:
-    # - Red and Green are close
-    # - Both are in the skin tone range (50-200)
-    # - Low texture (smooth skin)
+    # Human skin: Red and Green close, both in 50-200 range, low texture
     is_human_skin = (
         red_green_diff < 35 and 
         red_mean > 50 and 
@@ -419,50 +417,42 @@ def is_leaf_image(image):
     if is_human_skin:
         return False
     
-    # Additional human check: If red and green are extremely close
+    # Extra human check: if red and green are very close
     if red_green_diff < 20 and green_mean > 60 and red_mean > 60:
         return False
     
     # ====================================================================
-    # STEP 2: CHECK FOR TEXTURE (Leaves have veins)
+    # STEP 2: DETECT LEAVES (Very lenient)
     # ====================================================================
     
-    # Texture means variation in pixel values
-    has_texture = (green_std > 5 or red_std > 5 or blue_std > 5)
+    # A leaf must have SOME color (not pure black/white)
+    has_color = (green_mean > 5 or red_mean > 5 or blue_mean > 5)
+    
+    # A leaf must have SOME texture (veins or surface variation)
+    # Lowered from 5 to 3 to catch smooth leaves
+    has_texture = (green_std > 3 or red_std > 3 or blue_std > 3)
+    
+    # Not a solid color block
+    not_solid = (green_std + red_std + blue_std > 4)
     
     # ====================================================================
-    # STEP 3: CHECK FOR COLOR (Any color is fine for leaves)
+    # STEP 3: FALLBACK FOR LEAF-LIKE COLORS
     # ====================================================================
     
-    # Rotten/rusty leaves can be brown, yellow, or any color
-    # Just make sure it's not pure black/white or solid color
-    has_color = (green_mean > 10 or red_mean > 10 or blue_mean > 10)
-    not_solid = (green_std + red_std + blue_std > 8)
+    # Check for greenish, yellowish, or brownish tones
+    is_greenish = (green_mean > red_mean * 0.7 and green_mean > blue_mean * 0.7)
+    is_yellowish = (red_mean > 40 and green_mean > 40 and blue_mean < 130)
+    is_brownish = (red_mean > 50 and green_mean > 25 and blue_mean < 100)
+    is_leaf_color = is_greenish or is_yellowish or is_brownish
     
     # ====================================================================
-    # STEP 4: FINAL DECISION
+    # FINAL DECISION
     # ====================================================================
     
-    # A leaf is: has texture, has color, not solid, and not human skin
-    is_leaf = has_texture and has_color and not_solid
-    
-    # ====================================================================
-    # SPECIAL FALLBACK: Even if it has low texture, check if it has leaf-like colors
-    # ====================================================================
-    
-    if not is_leaf:
-        # Check for leaf-like color combinations
-        # Green leaf: green is highest
-        is_greenish = (green_mean > red_mean * 0.8 and green_mean > blue_mean * 0.8)
-        
-        # Yellow/Rusty leaf: red and green high, blue low
-        is_yellowish = (red_mean > 50 and green_mean > 50 and blue_mean < 120)
-        
-        # Brown leaf: red high, blue low
-        is_brownish = (red_mean > 60 and green_mean > 30 and blue_mean < 100)
-        
-        if is_greenish or is_yellowish or is_brownish:
-            is_leaf = True
+    # ACCEPT if:
+    # 1. It has color AND texture, OR
+    # 2. It has leaf-like color AND some variation
+    is_leaf = (has_color and has_texture and not_solid) or (is_leaf_color and not_solid)
     
     return is_leaf
 
@@ -608,7 +598,7 @@ with st.sidebar:
 
 st.markdown("""
 <div style="text-align: center; padding: 10px 0 20px 0;">
-    <h1 style="font-size: 3.8rem;">Crop Disease Detection</h1>
+    <h1 style="font-size: 3.8rem;">🌾 Crop Disease Detection</h1>
     <p style="font-size: 1.3rem; color: #2e7d32; font-weight: 500;">
         AI-Powered Diagnosis for Pakistan's Farmers
     </p>
@@ -662,7 +652,7 @@ st.markdown("---")
 # MAIN UPLOAD SECTION
 # ======================================================================
 
-st.markdown("### Upload a Leaf Image for Diagnosis")
+st.markdown("### 📸 Upload a Leaf Image for Diagnosis")
 
 uploaded_file = st.file_uploader(
     "Choose an image...",
@@ -677,7 +667,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # FOOLPROOF LEAF DETECTION
+        # PERFECT LEAF DETECTION
         is_leaf = is_leaf_image(image)
         
         # Show detection details
@@ -689,19 +679,19 @@ if uploaded_file is not None:
             green_std = np.std(img_array[:, :, 1])
             red_green_diff = abs(red - green)
             
-            st.caption(f"Analysis: Green: {green:.0f} | Red: {red:.0f} | Blue: {blue:.0f}")
-            st.caption(f"Texture: {green_std:.1f} | Red-Green Diff: {red_green_diff:.0f}")
+            st.caption(f"📊 Analysis: 🟢 Green: {green:.0f} | 🔴 Red: {red:.0f} | 🔵 Blue: {blue:.0f}")
+            st.caption(f"📊 Texture: {green_std:.1f} | Red-Green Diff: {red_green_diff:.0f}")
         
         if is_leaf:
             st.markdown("""
             <div class="alert-success">
-                <strong>Leaf Detected!</strong> Image is ready for analysis.
+                ✅ <strong>Leaf Detected!</strong> Image is ready for analysis.
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="alert-danger">
-                <strong>Warning:</strong> This does not appear to be a leaf image.
+                ⚠️ <strong>Warning:</strong> This does not appear to be a leaf image.
                 <br>Please upload a clear photo of a plant leaf for accurate diagnosis.
             </div>
             """, unsafe_allow_html=True)
@@ -709,23 +699,23 @@ if uploaded_file is not None:
             st.markdown("""
             <div style="background: #f5f5f5; border-radius: 12px; padding: 15px; margin-top: 10px;">
                 <p style="font-size: 0.9rem; color: #666; margin: 0;">
-                    <strong>Tips for best results:</strong><br>
-                    - Use a well-lit photo<br>
-                    - Show the entire leaf<br>
-                    - Keep the leaf in focus<br>
-                    - Use a plain background
+                    💡 <strong>Tips for best results:</strong><br>
+                    • 📸 Use a well-lit photo<br>
+                    • 🌿 Show the entire leaf<br>
+                    • 🎯 Keep the leaf in focus<br>
+                    • 🌱 Use a plain background
                 </p>
             </div>
             """, unsafe_allow_html=True)
     
     with col2:
-        if st.button("Analyze Disease", use_container_width=True):
-            with st.spinner("Analyzing with AI..."):
+        if st.button("🔍 Analyze Disease", use_container_width=True):
+            with st.spinner("🧠 Analyzing with AI..."):
                 
                 if not is_leaf:
                     st.markdown("""
                     <div class="alert-warning">
-                        This doesn't appear to be a leaf. Please upload a leaf image.
+                        ⚠️ This doesn't appear to be a leaf. Please upload a leaf image.
                     </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -766,29 +756,29 @@ if uploaded_file is not None:
                         
                         st.markdown(f"""
                         <div class="result-card {severity_class}">
-                            <h3 style="margin-top:0; color: #1b5e20;">Analysis Complete</h3>
+                            <h3 style="margin-top:0; color: #1b5e20;">✅ Analysis Complete</h3>
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        st.markdown(f"### Disease Detected")
+                        st.markdown(f"### 🦠 Disease Detected")
                         st.markdown(f"**{result['disease'].replace('_', ' ')}**")
                         st.progress(result['confidence']/100)
                         st.caption(f"Confidence: {result['confidence']:.1f}%")
                         
-                        st.markdown(f"### Severity Level")
+                        st.markdown(f"### 📊 Severity Level")
                         st.markdown(f"**{severity_labels[result['severity']]}**")
                         
-                        st.markdown(f"### Recommended Treatment")
+                        st.markdown(f"### 💊 Recommended Treatment")
                         st.info(treatment)
                         
                         if result['severity'] == 0:
-                            st.success("Plant is healthy! Continue regular care.")
+                            st.success("✅ Plant is healthy! Continue regular care.")
                         elif result['severity'] == 1:
-                            st.warning("Early stage detected - take preventive action")
+                            st.warning("⚠️ Early stage detected - take preventive action")
                         elif result['severity'] == 2:
-                            st.warning("Moderate infection - intervention required")
+                            st.warning("⚠️ Moderate infection - intervention required")
                         else:
-                            st.error("Severe infection - immediate action needed!")
+                            st.error("🚨 Severe infection - immediate action needed!")
 
 else:
     st.markdown("""
@@ -796,8 +786,8 @@ else:
         <span class="icon">🌿</span>
         <h3>Upload a Leaf Image</h3>
         <p>Click the button above to select an image</p>
-        <p style="color: #999; font-size: 0.85rem;">Supports: JPG, PNG, BMP</p>
-        <p style="color: #999; font-size: 0.85rem;">For best results, use clear, well-lit images</p>
+        <p style="color: #999; font-size: 0.85rem;">📸 Supports: JPG, PNG, BMP</p>
+        <p style="color: #999; font-size: 0.85rem;">💡 For best results, use clear, well-lit images</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -818,7 +808,7 @@ st.markdown(f"""
 # DISEASE GUIDE SECTION
 # ======================================================================
 
-with st.expander("Common Crop Diseases - Quick Guide", expanded=False):
+with st.expander("📊 Common Crop Diseases - Quick Guide", expanded=False):
     st.markdown("""
     <style>
     .disease-guide-table {
@@ -847,27 +837,27 @@ with st.expander("Common Crop Diseases - Quick Guide", expanded=False):
             <th>Treatment</th>
         </tr>
         <tr>
-            <td>Tomato Late Blight</td>
+            <td>🍅 <strong>Tomato Late Blight</strong></td>
             <td>Dark spots, white mold on leaves</td>
             <td>Apply fungicide, remove infected plants</td>
         </tr>
         <tr>
-            <td>Corn Rust</td>
+            <td>🌽 <strong>Corn Rust</strong></td>
             <td>Brown/orange pustules on leaves</td>
             <td>Apply fungicide, use resistant varieties</td>
         </tr>
         <tr>
-            <td>Apple Scab</td>
+            <td>🍎 <strong>Apple Scab</strong></td>
             <td>Olive-green spots, leaf curling</td>
             <td>Fungicide spray, prune affected branches</td>
         </tr>
         <tr>
-            <td>Potato Late Blight</td>
+            <td>🥔 <strong>Potato Late Blight</strong></td>
             <td>Dark lesions, white mold growth</td>
             <td>Apply fungicide, remove infected plants</td>
         </tr>
         <tr>
-            <td>Grape Black Rot</td>
+            <td>🍇 <strong>Grape Black Rot</strong></td>
             <td>Dark spots, fruit rot</td>
             <td>Systemic fungicide, remove affected vines</td>
         </tr>
@@ -883,22 +873,22 @@ st.markdown("---")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("Pakistan Agriculture AI")
+    st.markdown("🇵🇰 **Pakistan Agriculture AI**")
 
 with col2:
-    st.markdown("For Farmers, By Farmers")
+    st.markdown("🌿 **For Farmers, By Farmers**")
 
 with col3:
-    st.markdown(f"{datetime.now().strftime('%B %Y')}")
+    st.markdown(f"📅 {datetime.now().strftime('%B %Y')}")
 
 st.markdown("""
 <div class="footer">
-    <p style="font-size: 1rem; font-weight: 500;">Protecting Pakistan's Crops with Artificial Intelligence</p>
+    <p style="font-size: 1rem; font-weight: 500;">🌾 Protecting Pakistan's Crops with Artificial Intelligence</p>
     <p style="color: #999; font-size: 0.8rem;">
         Built with <span class="heart">❤️</span> for the farmers of Pakistan
     </p>
     <p style="color: #bbb; font-size: 0.7rem;">
-        Together for a greener, prosperous Pakistan
+        🇵🇰 Together for a greener, prosperous Pakistan
     </p>
 </div>
 """, unsafe_allow_html=True)
