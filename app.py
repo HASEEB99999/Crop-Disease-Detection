@@ -899,4 +899,57 @@ with st.expander("📊 Common Crop Diseases - Quick Guide", expanded=False):
         </tr>
         <tr>
             <td>🍅 <strong>Tomato Late Blight</strong></td>
-            <td>Dark spots, white mold
+            <td>Dark spots, white mold on leaves</td>
+            <td>Apply fungicide, remove infected plants</td>
+        </tr>
+        <tr>
+            <td>🌽 <strong>Corn Rust</strong></td>
+            <td>Brown/orange pustules on leaves</td>
+            <td>Apply fungicide, use resistant varieties</td>
+        </tr>
+        <tr>
+            <td>🍎 <strong>Apple Scab</strong></td>
+            <td>Olive-green spots, leaf curling</td>
+            <td>Fungicide spray, prune affected branches</td>
+        </tr>
+        <tr>
+            <td>🥔 <strong>Potato Late Blight</strong></td>
+            <td>Dark lesions, white mold growth</td>
+            <td>Apply fungicide, remove infected plants</td>
+        </tr>
+        <tr>
+            <td>🍇 <strong>Grape Black Rot</strong></td>
+            <td>Dark spots, fruit rot</td>
+            <td>Systemic fungicide, remove affected vines</td>
+        </tr>
+    </table>
+    """, unsafe_allow_html=True)
+
+# ======================================================================
+# FOOTER
+# ======================================================================
+
+st.markdown("---")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown("🇵🇰 **Pakistan Agriculture AI**")
+
+with col2:
+    st.markdown("🌿 **For Farmers, By Farmers**")
+
+with col3:
+    st.markdown(f"📅 {datetime.now().strftime('%B %Y')}")
+
+st.markdown("""
+<div class="footer">
+    <p style="font-size: 1rem; font-weight: 500;">🌾 Protecting Pakistan's Crops with Artificial Intelligence</p>
+    <p style="color: #999; font-size: 0.8rem;">
+        Built with <span class="heart">❤️</span> for the farmers of Pakistan
+    </p>
+    <p style="color: #bbb; font-size: 0.7rem;">
+        🇵🇰 Together for a greener, prosperous Pakistan
+    </p>
+</div>
+""", unsafe_allow_html=True)
