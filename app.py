@@ -1,5 +1,6 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - PERFECT LEAF DETECTION V2
+# 🌾 CROP DISEASE DETECTION SYSTEM - SMART LEAF DETECTION
+# Detects healthy AND diseased/rotten leaves!
 # Pakistan Agriculture AI - Protecting Our Future
 # ======================================================================
 
@@ -364,12 +365,13 @@ def get_treatment(disease, severity):
     return default.get(severity, '👨‍🌾 Consult local expert')
 
 # ======================================================================
-# PERFECT LEAF DETECTION - STRICT CRITERIA
+# SMART LEAF DETECTION - DETECTS BOTH HEALTHY AND DISEASED LEAVES
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    STRICT leaf detection - humans, animals, and objects will NOT be detected
+    SMART leaf detection - detects healthy AND diseased/rotten leaves!
+    Uses multiple fallback strategies
     """
     img_array = np.array(image)
     
@@ -396,61 +398,73 @@ def is_leaf_image(image):
     green_red_ratio = green_mean / (red_mean + 1)
     green_blue_ratio = green_mean / (blue_mean + 1)
     
-    # ----- STRICT LEAF DETECTION CRITERIA -----
+    # ----- STRATEGY 1: HEALTHY LEAF DETECTION -----
+    # Green is dominant, good texture
+    is_green_dominant = (green_mean > red_mean * 1.1) and (green_mean > blue_mean * 1.1)
+    has_green_ratio = (green_red_ratio > 0.45) and (green_blue_ratio > 0.45)
+    has_texture = green_std > 10
+    proper_brightness = 30 < green_mean < 230
     
-    # 1. GREEN MUST BE DOMINANT (strict)
-    # Green must be at least 1.2x the red and 1.2x the blue
-    is_green_dominant = (green_mean > red_mean * 1.2) and (green_mean > blue_mean * 1.2)
+    healthy_leaf = is_green_dominant and has_green_ratio and has_texture and proper_brightness
     
-    # 2. GREEN RATIO MUST BE HIGH (strict)
-    # Green/Red ratio must be > 0.5 and Green/Blue ratio > 0.5
-    has_green_ratio = (green_red_ratio > 0.5) and (green_blue_ratio > 0.5)
+    # ----- STRATEGY 2: DISEASED/ROTTEN LEAF DETECTION -----
+    # Diseased leaves lose green, become brown/yellow
+    # But they still have leaf-like texture and structure
     
-    # 3. TEXTURE (leaves have visible texture, but not too smooth like human skin)
-    # Human faces have low texture variation in green channel
-    has_texture = green_std > 12
+    # Check if it has some green (even if low)
+    has_some_green = green_mean > 40
     
-    # 4. NOT TOO DARK OR TOO LIGHT
-    proper_brightness = 30 < green_mean < 220
+    # Check texture (diseased leaves still have texture)
+    has_leaf_texture = (green_std > 8) or (red_std > 8) or (blue_std > 8)
     
-    # 5. RED AND BLUE SHOULD BE BALANCED (humans have more red)
-    # Humans have much higher red than leaves
-    is_not_skin = red_mean < 150
+    # Check if red and green are somewhat balanced (like brown/yellow leaves)
+    red_green_balanced = (red_mean > green_mean * 0.7) and (red_mean < green_mean * 1.8)
     
-    # 6. VARIATION IN CHANNELS (leaves have some variation)
-    has_variation = (green_std > 8) or (red_std > 8) or (blue_std > 8)
+    # Check if it's not uniform (like human skin)
+    not_uniform = (green_std > 5) or (red_std > 5) or (blue_std > 5)
     
-    # 7. CHECK FOR SKIN TONES (humans have pink/orange tones)
-    # If red and green are close, it's likely human skin
-    red_green_diff = abs(red_mean - green_mean)
-    is_not_human = red_green_diff > 20  # Leaves have larger red-green difference
+    # Check for leaf-like structure (veins/texture)
+    has_structure = has_leaf_texture and not_uniform
     
-    # 8. GREEN PERCENTAGE (leaves have high green percentage)
-    total_pixels = len(img_array) * len(img_array[0])
-    green_pixels = np.sum(green > 100)
-    green_percentage = green_pixels / (total_pixels + 1) * 100
-    has_green_dominance = green_percentage > 30
-    
-    # Final decision - ALL criteria must be met for a leaf
-    is_leaf = (
-        is_green_dominant and
-        has_green_ratio and
-        has_texture and
+    # Diseased leaf detection (less green, still has structure)
+    diseased_leaf = (
+        has_some_green and
+        has_structure and
+        red_green_balanced and
         proper_brightness and
-        is_not_skin and
-        has_variation and
-        is_not_human and
-        has_green_dominance
+        (green_red_ratio > 0.25)  # Still has some green ratio
     )
     
-    # DEBUG INFO (visible in app)
-    # st.caption(f"🌿 Leaf Detection Score:")
-    # st.caption(f"   Green Dominant: {is_green_dominant}")
-    # st.caption(f"   Green Ratio: {has_green_ratio}")
-    # st.caption(f"   Texture: {has_texture}")
-    # st.caption(f"   Not Skin: {is_not_skin}")
-    # st.caption(f"   Not Human: {is_not_human}")
-    # st.caption(f"   Green %: {green_percentage:.1f}%")
+    # ----- STRATEGY 3: EDGE DETECTION FALLBACK -----
+    # Try to detect leaf edges/veins using simple edge detection
+    try:
+        from scipy import ndimage
+        gray = (red + green + blue) / 3
+        # Simple edge detection
+        edges = np.abs(gray - ndimage.shift(gray, [1, 0]))
+        edge_mean = np.mean(edges)
+        has_edges = edge_mean > 3
+    except:
+        has_edges = False
+    
+    # ----- FINAL DECISION -----
+    # A leaf if ANY of these strategies work:
+    # 1. Healthy leaf detection
+    # 2. Diseased/rotten leaf detection
+    # 3. Strong edges (leaf veins)
+    is_leaf = healthy_leaf or diseased_leaf or (has_edges and has_some_green and has_structure)
+    
+    # Special case: Very brown leaves (completely rotten)
+    # If almost no green but has texture and structure, it's still a leaf
+    if green_mean < 40 and has_structure and (red_mean > 50 or blue_mean > 50):
+        is_leaf = True
+    
+    # If image has very high green percentage but low mean (dark green leaf)
+    total_pixels = len(img_array) * len(img_array[0])
+    green_pixels = np.sum(green > 80)
+    green_percentage = green_pixels / (total_pixels + 1) * 100
+    if green_percentage > 20 and has_structure:
+        is_leaf = True
     
     return is_leaf
 
@@ -665,7 +679,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # STRICT LEAF DETECTION
+        # SMART LEAF DETECTION - Works for healthy AND diseased leaves!
         is_leaf = is_leaf_image(image)
         
         # Show detection details
@@ -677,7 +691,7 @@ if uploaded_file is not None:
             green_std = np.std(img_array[:, :, 1])
             
             st.caption(f"📊 Analysis: 🟢 Green: {green:.0f} | 🔴 Red: {red:.0f} | 🔵 Blue: {blue:.0f}")
-            st.caption(f"📊 Texture: {green_std:.1f} | Green %: {(np.sum(img_array[:, :, 1] > 100) / (img_array.shape[0] * img_array.shape[1]) * 100):.1f}%")
+            st.caption(f"📊 Texture: {green_std:.1f}")
         
         if is_leaf:
             st.markdown("""
@@ -883,9 +897,4 @@ st.markdown("""
     <p style="font-size: 1rem; font-weight: 500;">🌾 Protecting Pakistan's Crops with Artificial Intelligence</p>
     <p style="color: #999; font-size: 0.8rem;">
         Built with <span class="heart">❤️</span> for the farmers of Pakistan
-    </p>
-    <p style="color: #bbb; font-size: 0.7rem;">
-        🇵🇰 Together for a greener, prosperous Pakistan
-    </p>
-</div>
-""", unsafe_allow_html=True)
+    </p
