@@ -1,6 +1,6 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - STRICT LEAF DETECTION
-# Rejects humans, animals, and other objects!
+# 🌾 CROP DISEASE DETECTION SYSTEM - ALL LEAF TYPES DETECTED
+# Detects: Healthy Green, Yellow, Rusty, Brown, Diseased Leaves!
 # Pakistan Agriculture AI - Protecting Our Future
 # ======================================================================
 
@@ -317,13 +317,17 @@ QUOTES = [
 ]
 
 # ======================================================================
-# STRICT LEAF DETECTION - REJECTS HUMANS!
+# SMART LEAF DETECTION - DETECTS ALL LEAF TYPES!
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    STRICT leaf detection - rejects humans, animals, and other objects!
-    Uses multiple checks to ensure it's a real leaf.
+    SMART leaf detection - detects ALL leaf types:
+    - Healthy green leaves
+    - Yellow leaves
+    - Rusty/brown leaves
+    - Diseased leaves
+    - Rejects humans, animals, and other objects!
     """
     img_array = np.array(image)
     
@@ -352,80 +356,80 @@ def is_leaf_image(image):
     red_blue_ratio = red_mean / (blue_mean + 1)
     
     # ----- HUMAN SKIN DETECTION (REJECT) -----
-    # Human skin has these characteristics:
-    # 1. Red and green are close (skin tone)
-    # 2. Blue is lower
-    # 3. Low texture variation (smooth skin)
-    
+    # Human skin has red and green close, low texture
     red_green_diff = abs(red_mean - green_mean)
     is_skin_tone = red_green_diff < 30 and red_mean > 80 and green_mean > 80
-    is_low_texture = green_std < 15 and red_std < 15
+    is_low_texture = green_std < 12 and red_std < 12
     is_human_skin = is_skin_tone and is_low_texture
     
     if is_human_skin:
         return False
     
-    # ----- ADDITIONAL HUMAN REJECTION -----
-    # Check if image has high red presence (humans have more red)
-    if red_mean > 120 and green_mean < red_mean:
-        return False
-    
-    # Check if image is too uniform (like a face)
-    if green_std < 8 and red_std < 8 and blue_std < 8:
-        return False
-    
     # ----- LEAF DETECTION CRITERIA -----
+    # We'll use a scoring system instead of strict AND conditions
     
-    # 1. GREEN MUST BE DOMINANT (strict)
-    is_green_dominant = (green_mean > red_mean * 1.15) and (green_mean > blue_mean * 1.15)
+    leaf_score = 0
     
-    # 2. GREEN RATIO MUST BE GOOD
-    has_green_ratio = (green_red_ratio > 0.5) or (green_blue_ratio > 0.5)
+    # 1. GREEN DOMINANCE (even if low, it helps)
+    if green_mean > red_mean * 0.85 and green_mean > blue_mean * 0.85:
+        leaf_score += 25
+    elif green_mean > red_mean * 0.70 and green_mean > blue_mean * 0.70:
+        leaf_score += 15
     
-    # 3. TEXTURE - leaves have visible texture
-    has_texture = green_std > 10
+    # 2. GREEN RATIO (leaves have some green)
+    if green_red_ratio > 0.35 or green_blue_ratio > 0.35:
+        leaf_score += 20
+    elif green_red_ratio > 0.20 or green_blue_ratio > 0.20:
+        leaf_score += 10
     
-    # 4. NOT TOO DARK OR TOO LIGHT
-    proper_brightness = 30 < green_mean < 230
+    # 3. TEXTURE (leaves have visible texture/veins)
+    if green_std > 12 or red_std > 12 or blue_std > 12:
+        leaf_score += 25
+    elif green_std > 8 or red_std > 8 or blue_std > 8:
+        leaf_score += 15
     
-    # 5. RED AND BLUE SHOULD BE BALANCED (not like human skin)
-    red_blue_balanced = 0.5 < red_blue_ratio < 2.0
+    # 4. BRIGHTNESS (not too dark, not too light)
+    if 30 < green_mean < 230 and 30 < red_mean < 230 and 30 < blue_mean < 230:
+        leaf_score += 15
     
-    # 6. GREEN PERCENTAGE (leaves have lots of green pixels)
+    # 5. NATURAL VARIATION (not uniform like a face)
+    if (green_std > 5 or red_std > 5 or blue_std > 5):
+        leaf_score += 15
+    
+    # 6. SPECIAL: YELLOW/RUSTY LEAF DETECTION
+    # Yellow leaves have: high red+green, low blue, good texture
+    if green_mean > 60 and red_mean > 60 and blue_mean < 120:
+        # Check if it's yellow/rusty (high red+green, low blue)
+        if red_mean > 80 and green_mean > 80:
+            leaf_score += 20
+        if green_std > 10:
+            leaf_score += 10
+    
+    # 7. SPECIAL: BROWN LEAF DETECTION
+    # Brown leaves have: high red, medium green, low blue, texture
+    if red_mean > 80 and green_mean > 40 and blue_mean < 100:
+        if green_std > 10:
+            leaf_score += 20
+    
+    # 8. CHECK IF IMAGE HAS LEAF-LIKE STRUCTURE
+    # Leaves have veins/texture pattern
     total_pixels = len(img_array) * len(img_array[0])
-    green_pixels = np.sum(green > 80)
+    green_pixels = np.sum(green > 60)
     green_percentage = green_pixels / (total_pixels + 1) * 100
-    has_green_dominance = green_percentage > 20
+    if green_percentage > 15:
+        leaf_score += 10
     
-    # 7. NOT HUMAN SKIN (final check)
-    # If red and green are too close, it's not a leaf
-    red_green_ratio = red_mean / (green_mean + 1)
-    not_human = red_green_ratio < 0.85
+    # 9. REJECT HUMAN SKIN (final check)
+    # If red and green are too close AND texture is low → REJECT
+    if red_green_diff < 25 and green_std < 10 and red_std < 10:
+        return False
     
-    # 8. CHECK FOR NATURAL VARIATION
-    has_variation = (green_std > 8) or (red_std > 8) or (blue_std > 8)
+    # 10. REJECT SOLID COLOR IMAGES
+    if green_std < 3 and red_std < 3 and blue_std < 3:
+        return False
     
-    # Final decision - ALL criteria must be met
-    is_leaf = (
-        is_green_dominant and
-        has_green_ratio and
-        has_texture and
-        proper_brightness and
-        red_blue_balanced and
-        has_green_dominance and
-        not_human and
-        has_variation
-    )
-    
-    # ----- SPECIAL CASE: DISEASED/BROWN LEAVES -----
-    # If leaf is diseased and lost green color, but still has structure
-    if not is_leaf:
-        # Check if it has some green and good texture
-        if green_mean > 30 and green_mean < 120 and green_std > 12:
-            # Check if it has leaf-like structure (veins)
-            # High texture + some green = likely a leaf
-            if green_std > 15 and red_std > 15:
-                is_leaf = True
+    # FINAL DECISION: Leaf if score >= 40 (out of ~110)
+    is_leaf = leaf_score >= 40
     
     return is_leaf
 
@@ -640,7 +644,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # STRICT LEAF DETECTION
+        # SMART LEAF DETECTION - Works for ALL leaf types!
         is_leaf = is_leaf_image(image)
         
         # Show detection details
