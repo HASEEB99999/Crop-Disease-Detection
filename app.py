@@ -1,6 +1,6 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - SMART LEAF DETECTION
-# Detects healthy AND diseased/rotten leaves!
+# 🌾 CROP DISEASE DETECTION SYSTEM - STRICT LEAF DETECTION
+# Rejects humans, animals, and other objects!
 # Pakistan Agriculture AI - Protecting Our Future
 # ======================================================================
 
@@ -317,61 +317,13 @@ QUOTES = [
 ]
 
 # ======================================================================
-# FUNCTIONS
-# ======================================================================
-
-def get_severity(disease_name):
-    if 'healthy' in disease_name.lower():
-        return 0
-    elif 'severe' in disease_name.lower() or 'late' in disease_name.lower():
-        return 3
-    elif 'early' in disease_name.lower():
-        return 1
-    return 2
-
-def get_treatment(disease, severity):
-    treatments = {
-        'Tomato___Early_blight': {
-            1: '🌱 Remove affected leaves, apply copper-based fungicide',
-            2: '🧪 Apply chlorothalonil fungicide, improve air circulation',
-            3: '🚨 Remove infected plants, apply fungicide, crop rotation'
-        },
-        'Tomato___Late_blight': {
-            1: '🌱 Apply copper fungicide, remove infected leaves',
-            2: '🧪 Apply chlorothalonil, avoid overhead watering',
-            3: '🚨 Remove infected plants, apply mancozeb fungicide'
-        },
-        'Corn___Common_rust': {
-            1: '🌱 Apply fungicide, remove infected leaves',
-            2: '🧪 Apply azoxystrobin fungicide, improve air flow',
-            3: '🚨 Apply systemic fungicide, remove severely infected plants'
-        },
-        'Apple___Apple_scab': {
-            1: '🌱 Apply organic sulfur spray, remove infected leaves',
-            2: '🧪 Apply fungicide (myclobutanil), prune affected branches',
-            3: '🚨 Apply systemic fungicide, remove severely infected branches'
-        }
-    }
-    
-    default = {
-        0: '✅ Plant is healthy - Continue regular care',
-        1: '🌱 Monitor plant health, consider preventive measures',
-        2: '🧪 Apply appropriate fungicide, consult local expert',
-        3: '🚨 Remove affected parts, apply treatment immediately'
-    }
-    
-    if disease in treatments and severity in treatments[disease]:
-        return treatments[disease][severity]
-    return default.get(severity, '👨‍🌾 Consult local expert')
-
-# ======================================================================
-# SMART LEAF DETECTION - DETECTS BOTH HEALTHY AND DISEASED LEAVES
+# STRICT LEAF DETECTION - REJECTS HUMANS!
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    SMART leaf detection - detects healthy AND diseased/rotten leaves!
-    Uses multiple fallback strategies
+    STRICT leaf detection - rejects humans, animals, and other objects!
+    Uses multiple checks to ensure it's a real leaf.
     """
     img_array = np.array(image)
     
@@ -397,74 +349,83 @@ def is_leaf_image(image):
     # Calculate ratios
     green_red_ratio = green_mean / (red_mean + 1)
     green_blue_ratio = green_mean / (blue_mean + 1)
+    red_blue_ratio = red_mean / (blue_mean + 1)
     
-    # ----- STRATEGY 1: HEALTHY LEAF DETECTION -----
-    # Green is dominant, good texture
-    is_green_dominant = (green_mean > red_mean * 1.1) and (green_mean > blue_mean * 1.1)
-    has_green_ratio = (green_red_ratio > 0.45) and (green_blue_ratio > 0.45)
+    # ----- HUMAN SKIN DETECTION (REJECT) -----
+    # Human skin has these characteristics:
+    # 1. Red and green are close (skin tone)
+    # 2. Blue is lower
+    # 3. Low texture variation (smooth skin)
+    
+    red_green_diff = abs(red_mean - green_mean)
+    is_skin_tone = red_green_diff < 30 and red_mean > 80 and green_mean > 80
+    is_low_texture = green_std < 15 and red_std < 15
+    is_human_skin = is_skin_tone and is_low_texture
+    
+    if is_human_skin:
+        return False
+    
+    # ----- ADDITIONAL HUMAN REJECTION -----
+    # Check if image has high red presence (humans have more red)
+    if red_mean > 120 and green_mean < red_mean:
+        return False
+    
+    # Check if image is too uniform (like a face)
+    if green_std < 8 and red_std < 8 and blue_std < 8:
+        return False
+    
+    # ----- LEAF DETECTION CRITERIA -----
+    
+    # 1. GREEN MUST BE DOMINANT (strict)
+    is_green_dominant = (green_mean > red_mean * 1.15) and (green_mean > blue_mean * 1.15)
+    
+    # 2. GREEN RATIO MUST BE GOOD
+    has_green_ratio = (green_red_ratio > 0.5) or (green_blue_ratio > 0.5)
+    
+    # 3. TEXTURE - leaves have visible texture
     has_texture = green_std > 10
+    
+    # 4. NOT TOO DARK OR TOO LIGHT
     proper_brightness = 30 < green_mean < 230
     
-    healthy_leaf = is_green_dominant and has_green_ratio and has_texture and proper_brightness
+    # 5. RED AND BLUE SHOULD BE BALANCED (not like human skin)
+    red_blue_balanced = 0.5 < red_blue_ratio < 2.0
     
-    # ----- STRATEGY 2: DISEASED/ROTTEN LEAF DETECTION -----
-    # Diseased leaves lose green, become brown/yellow
-    # But they still have leaf-like texture and structure
-    
-    # Check if it has some green (even if low)
-    has_some_green = green_mean > 40
-    
-    # Check texture (diseased leaves still have texture)
-    has_leaf_texture = (green_std > 8) or (red_std > 8) or (blue_std > 8)
-    
-    # Check if red and green are somewhat balanced (like brown/yellow leaves)
-    red_green_balanced = (red_mean > green_mean * 0.7) and (red_mean < green_mean * 1.8)
-    
-    # Check if it's not uniform (like human skin)
-    not_uniform = (green_std > 5) or (red_std > 5) or (blue_std > 5)
-    
-    # Check for leaf-like structure (veins/texture)
-    has_structure = has_leaf_texture and not_uniform
-    
-    # Diseased leaf detection (less green, still has structure)
-    diseased_leaf = (
-        has_some_green and
-        has_structure and
-        red_green_balanced and
-        proper_brightness and
-        (green_red_ratio > 0.25)  # Still has some green ratio
-    )
-    
-    # ----- STRATEGY 3: EDGE DETECTION FALLBACK -----
-    # Try to detect leaf edges/veins using simple edge detection
-    try:
-        from scipy import ndimage
-        gray = (red + green + blue) / 3
-        # Simple edge detection
-        edges = np.abs(gray - ndimage.shift(gray, [1, 0]))
-        edge_mean = np.mean(edges)
-        has_edges = edge_mean > 3
-    except:
-        has_edges = False
-    
-    # ----- FINAL DECISION -----
-    # A leaf if ANY of these strategies work:
-    # 1. Healthy leaf detection
-    # 2. Diseased/rotten leaf detection
-    # 3. Strong edges (leaf veins)
-    is_leaf = healthy_leaf or diseased_leaf or (has_edges and has_some_green and has_structure)
-    
-    # Special case: Very brown leaves (completely rotten)
-    # If almost no green but has texture and structure, it's still a leaf
-    if green_mean < 40 and has_structure and (red_mean > 50 or blue_mean > 50):
-        is_leaf = True
-    
-    # If image has very high green percentage but low mean (dark green leaf)
+    # 6. GREEN PERCENTAGE (leaves have lots of green pixels)
     total_pixels = len(img_array) * len(img_array[0])
     green_pixels = np.sum(green > 80)
     green_percentage = green_pixels / (total_pixels + 1) * 100
-    if green_percentage > 20 and has_structure:
-        is_leaf = True
+    has_green_dominance = green_percentage > 20
+    
+    # 7. NOT HUMAN SKIN (final check)
+    # If red and green are too close, it's not a leaf
+    red_green_ratio = red_mean / (green_mean + 1)
+    not_human = red_green_ratio < 0.85
+    
+    # 8. CHECK FOR NATURAL VARIATION
+    has_variation = (green_std > 8) or (red_std > 8) or (blue_std > 8)
+    
+    # Final decision - ALL criteria must be met
+    is_leaf = (
+        is_green_dominant and
+        has_green_ratio and
+        has_texture and
+        proper_brightness and
+        red_blue_balanced and
+        has_green_dominance and
+        not_human and
+        has_variation
+    )
+    
+    # ----- SPECIAL CASE: DISEASED/BROWN LEAVES -----
+    # If leaf is diseased and lost green color, but still has structure
+    if not is_leaf:
+        # Check if it has some green and good texture
+        if green_mean > 30 and green_mean < 120 and green_std > 12:
+            # Check if it has leaf-like structure (veins)
+            # High texture + some green = likely a leaf
+            if green_std > 15 and red_std > 15:
+                is_leaf = True
     
     return is_leaf
 
@@ -679,7 +640,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # SMART LEAF DETECTION - Works for healthy AND diseased leaves!
+        # STRICT LEAF DETECTION
         is_leaf = is_leaf_image(image)
         
         # Show detection details
@@ -689,9 +650,10 @@ if uploaded_file is not None:
             red = np.mean(img_array[:, :, 0])
             blue = np.mean(img_array[:, :, 2])
             green_std = np.std(img_array[:, :, 1])
+            red_green_diff = abs(red - green)
             
             st.caption(f"📊 Analysis: 🟢 Green: {green:.0f} | 🔴 Red: {red:.0f} | 🔵 Blue: {blue:.0f}")
-            st.caption(f"📊 Texture: {green_std:.1f}")
+            st.caption(f"📊 Texture: {green_std:.1f} | Red-Green Diff: {red_green_diff:.0f}")
         
         if is_leaf:
             st.markdown("""
