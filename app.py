@@ -1,5 +1,5 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - PERFECT LEAF DETECTION
+# 🌾 CROP DISEASE DETECTION SYSTEM - PERFECT LEAF DETECTION V2
 # Pakistan Agriculture AI - Protecting Our Future
 # ======================================================================
 
@@ -12,7 +12,6 @@ import base64
 import time
 import random
 from datetime import datetime
-import urllib.parse
 
 # ======================================================================
 # PAGE CONFIG
@@ -26,7 +25,7 @@ st.set_page_config(
 )
 
 # ======================================================================
-# CUSTOM CSS - PREMIUM NATURE THEME
+# CUSTOM CSS
 # ======================================================================
 
 st.markdown("""
@@ -86,34 +85,6 @@ st.markdown("""
     h3 {
         color: #2e7d32 !important;
         font-weight: 600 !important;
-    }
-    
-    .farmer-card {
-        background: linear-gradient(135deg, #1b5e20, #2e7d32);
-        border-radius: 20px;
-        padding: 20px;
-        color: white;
-        text-align: center;
-        box-shadow: 0 8px 30px rgba(46, 125, 50, 0.25);
-        margin: 10px 0;
-        border: 2px solid rgba(255,255,255,0.1);
-    }
-    .farmer-card img {
-        border-radius: 50%;
-        width: 80px;
-        height: 80px;
-        object-fit: cover;
-        border: 3px solid white;
-        margin-bottom: 10px;
-    }
-    .farmer-card h4 {
-        color: white !important;
-        margin: 5px 0;
-    }
-    .farmer-card p {
-        color: rgba(255,255,255,0.85) !important;
-        font-size: 0.85rem;
-        margin: 2px 0;
     }
     
     .stat-card {
@@ -300,10 +271,6 @@ st.markdown("""
         .stat-card h2 {
             font-size: 1.8rem !important;
         }
-        .css-1d391kg {
-            border-radius: 15px !important;
-            margin: 5px !important;
-        }
     }
     
     .stSpinner > div {
@@ -397,12 +364,12 @@ def get_treatment(disease, severity):
     return default.get(severity, '👨‍🌾 Consult local expert')
 
 # ======================================================================
-# PERFECT LEAF DETECTION - FIXED!
+# PERFECT LEAF DETECTION - STRICT CRITERIA
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    PERFECT leaf detection - uses multiple criteria with relaxed thresholds
+    STRICT leaf detection - humans, animals, and objects will NOT be detected
     """
     img_array = np.array(image)
     
@@ -422,48 +389,68 @@ def is_leaf_image(image):
     
     # Calculate standard deviations (texture)
     green_std = np.std(green)
+    red_std = np.std(red)
+    blue_std = np.std(blue)
     
     # Calculate ratios
     green_red_ratio = green_mean / (red_mean + 1)
     green_blue_ratio = green_mean / (blue_mean + 1)
     
-    # ----- RELAXED LEAF DETECTION CRITERIA -----
+    # ----- STRICT LEAF DETECTION CRITERIA -----
     
-    # 1. Check if green is the dominant color (relaxed threshold)
-    is_green_dominant = (green_mean > red_mean * 0.85) and (green_mean > blue_mean * 0.85)
+    # 1. GREEN MUST BE DOMINANT (strict)
+    # Green must be at least 1.2x the red and 1.2x the blue
+    is_green_dominant = (green_mean > red_mean * 1.2) and (green_mean > blue_mean * 1.2)
     
-    # 2. Check green ratio (relaxed)
-    has_green_ratio = (green_red_ratio > 0.35) or (green_blue_ratio > 0.35)
+    # 2. GREEN RATIO MUST BE HIGH (strict)
+    # Green/Red ratio must be > 0.5 and Green/Blue ratio > 0.5
+    has_green_ratio = (green_red_ratio > 0.5) and (green_blue_ratio > 0.5)
     
-    # 3. Check texture (leaves have texture)
-    has_texture = green_std > 8
+    # 3. TEXTURE (leaves have visible texture, but not too smooth like human skin)
+    # Human faces have low texture variation in green channel
+    has_texture = green_std > 12
     
-    # 4. Check brightness (not too dark, not too light)
-    proper_brightness = 20 < green_mean < 240
+    # 4. NOT TOO DARK OR TOO LIGHT
+    proper_brightness = 30 < green_mean < 220
     
-    # 5. Check that red and blue are not overwhelming
-    is_not_artificial = red_mean < 220 and blue_mean < 220
+    # 5. RED AND BLUE SHOULD BE BALANCED (humans have more red)
+    # Humans have much higher red than leaves
+    is_not_skin = red_mean < 150
     
-    # 6. Check if it's a natural image (not solid color)
-    has_variation = (green_std > 5) or (np.std(red) > 5) or (np.std(blue) > 5)
+    # 6. VARIATION IN CHANNELS (leaves have some variation)
+    has_variation = (green_std > 8) or (red_std > 8) or (blue_std > 8)
     
-    # Final decision - COMBINED CRITERIA (if any 3 are true, it's a leaf)
-    criteria_count = sum([
-        is_green_dominant,
-        has_green_ratio,
-        has_texture,
-        proper_brightness,
-        is_not_artificial,
-        has_variation
-    ])
+    # 7. CHECK FOR SKIN TONES (humans have pink/orange tones)
+    # If red and green are close, it's likely human skin
+    red_green_diff = abs(red_mean - green_mean)
+    is_not_human = red_green_diff > 20  # Leaves have larger red-green difference
     
-    # If at least 3 criteria are met, it's a leaf
-    is_leaf = criteria_count >= 3
+    # 8. GREEN PERCENTAGE (leaves have high green percentage)
+    total_pixels = len(img_array) * len(img_array[0])
+    green_pixels = np.sum(green > 100)
+    green_percentage = green_pixels / (total_pixels + 1) * 100
+    has_green_dominance = green_percentage > 30
     
-    # DEBUG INFO (helpful for understanding why it's not detected)
-    # st.caption(f"🌿 Leaf Detection Score: {criteria_count}/6")
-    # st.caption(f"   Green: {green_mean:.0f} | Red: {red_mean:.0f} | Blue: {blue_mean:.0f}")
-    # st.caption(f"   Green Ratio: {green_red_ratio:.2f} | Texture: {green_std:.1f}")
+    # Final decision - ALL criteria must be met for a leaf
+    is_leaf = (
+        is_green_dominant and
+        has_green_ratio and
+        has_texture and
+        proper_brightness and
+        is_not_skin and
+        has_variation and
+        is_not_human and
+        has_green_dominance
+    )
+    
+    # DEBUG INFO (visible in app)
+    # st.caption(f"🌿 Leaf Detection Score:")
+    # st.caption(f"   Green Dominant: {is_green_dominant}")
+    # st.caption(f"   Green Ratio: {has_green_ratio}")
+    # st.caption(f"   Texture: {has_texture}")
+    # st.caption(f"   Not Skin: {is_not_skin}")
+    # st.caption(f"   Not Human: {is_not_human}")
+    # st.caption(f"   Green %: {green_percentage:.1f}%")
     
     return is_leaf
 
@@ -557,17 +544,6 @@ def smart_analysis(image):
     return None
 
 # ======================================================================
-# FARMER IMAGES FROM GOOGLE
-# ======================================================================
-
-FARMER_IMAGES = [
-    "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=400&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=400&h=400&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=400&h=400&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1577805947697-89e18249d767?w=400&h=400&fit=crop&crop=face",
-]
-
-# ======================================================================
 # SIDEBAR
 # ======================================================================
 
@@ -575,28 +551,6 @@ with st.sidebar:
     st.markdown("🌿")
     st.markdown("## 🌾 Crop Disease AI")
     st.markdown("*Protecting Pakistan's Agriculture*")
-    
-    st.markdown("---")
-    
-    # Farmer Gallery
-    st.markdown("### 👨‍🌾 Pakistan Farmers")
-    
-    cols = st.columns(2)
-    for i, img_url in enumerate(FARMER_IMAGES[:4]):
-        col = cols[i % 2]
-        with col:
-            try:
-                response = requests.get(img_url, timeout=5)
-                if response.status_code == 200:
-                    img = Image.open(io.BytesIO(response.content))
-                    st.image(img, use_container_width=True)
-            except:
-                st.markdown(f"""
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 15px; text-align: center;">
-                    <div style="font-size: 2.5rem;">👨‍🌾</div>
-                    <p style="font-size: 0.7rem; color: rgba(255,255,255,0.7);">Pakistan Farmer</p>
-                </div>
-                """, unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -711,7 +665,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # PERFECT LEAF DETECTION
+        # STRICT LEAF DETECTION
         is_leaf = is_leaf_image(image)
         
         # Show detection details
@@ -722,12 +676,8 @@ if uploaded_file is not None:
             blue = np.mean(img_array[:, :, 2])
             green_std = np.std(img_array[:, :, 1])
             
-            # Calculate ratios
-            green_red_ratio = green / (red + 1)
-            green_blue_ratio = green / (blue + 1)
-            
             st.caption(f"📊 Analysis: 🟢 Green: {green:.0f} | 🔴 Red: {red:.0f} | 🔵 Blue: {blue:.0f}")
-            st.caption(f"📊 Ratios: Green/Red: {green_red_ratio:.2f} | Green/Blue: {green_blue_ratio:.2f} | Texture: {green_std:.1f}")
+            st.caption(f"📊 Texture: {green_std:.1f} | Green %: {(np.sum(img_array[:, :, 1] > 100) / (img_array.shape[0] * img_array.shape[1]) * 100):.1f}%")
         
         if is_leaf:
             st.markdown("""
