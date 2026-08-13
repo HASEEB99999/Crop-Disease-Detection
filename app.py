@@ -902,4 +902,4 @@ st.markdown("""
         🇵🇰 Together for a greener, prosperous Pakistan
     </p>
 </div>
-""", unsafe
+""", unsafe_allow_html=True)
