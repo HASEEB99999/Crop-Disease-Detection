@@ -569,7 +569,7 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### 📋 Model Info")
-    st.markdown(f"""
+    st.markdown("""
     | Property | Value |
     |----------|-------|
     | **Accuracy** | 82.82% |
@@ -897,4 +897,9 @@ st.markdown("""
     <p style="font-size: 1rem; font-weight: 500;">🌾 Protecting Pakistan's Crops with Artificial Intelligence</p>
     <p style="color: #999; font-size: 0.8rem;">
         Built with <span class="heart">❤️</span> for the farmers of Pakistan
-    </p
+    </p>
+    <p style="color: #bbb; font-size: 0.7rem;">
+        🇵🇰 Together for a greener, prosperous Pakistan
+    </p>
+</div>
+""", unsafe
