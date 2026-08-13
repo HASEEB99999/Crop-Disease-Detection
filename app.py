@@ -308,13 +308,13 @@ severity_labels = ['🟢 Healthy', '🟡 Mild', '🟠 Moderate', '🔴 Severe']
 # ======================================================================
 
 QUOTES = [
-    ("🌱 'Agriculture is the backbone of Pakistan’s economy'", "Haseeb Saleem"),
-    ("🌾 'The farmer is the only man in our economy who buys everything at retail, sells everything at wholesale, and pays the freight both ways.'", "John F. Kennedy"),
-    ("🌿 'Pakistan's economy flows from its fields.'", "Traditional Wisdom"),
-    ("🌻 'Agriculture is the most healthful, most useful, and most noble employment of man.'", "George Washington"),
-    ("🌾 'Crops are the green gold of Pakistan.'", "Traditional Wisdom"),
-    ("🍀 'To plant a garden is to believe in tomorrow.'", "Audrey Hepburn"),
-    ("🌱 'Pakistan's farmers feed the nation and drive the economy.'", "Haseeb Saleem")
+    ("Agriculture is the backbone of Pakistan's economy", "Haseeb Saleem"),
+    ("The farmer is the only man in our economy who buys everything at retail, sells everything at wholesale, and pays the freight both ways.", "John F. Kennedy"),
+    ("Pakistan's economy flows from its fields.", "Traditional Wisdom"),
+    ("Agriculture is the most healthful, most useful, and most noble employment of man.", "George Washington"),
+    ("Crops are the green gold of Pakistan.", "Traditional Wisdom"),
+    ("To plant a garden is to believe in tomorrow.", "Audrey Hepburn"),
+    ("Pakistan's farmers feed the nation and drive the economy.", "Haseeb Saleem")
 ]
 
 # ======================================================================
@@ -333,37 +333,37 @@ def get_severity(disease_name):
 def get_treatment(disease, severity):
     treatments = {
         'Tomato___Early_blight': {
-            1: '🌱 Remove affected leaves, apply copper-based fungicide',
-            2: '🧪 Apply chlorothalonil fungicide, improve air circulation',
-            3: '🚨 Remove infected plants, apply fungicide, crop rotation'
+            1: 'Remove affected leaves, apply copper-based fungicide',
+            2: 'Apply chlorothalonil fungicide, improve air circulation',
+            3: 'Remove infected plants, apply fungicide, crop rotation'
         },
         'Tomato___Late_blight': {
-            1: '🌱 Apply copper fungicide, remove infected leaves',
-            2: '🧪 Apply chlorothalonil, avoid overhead watering',
-            3: '🚨 Remove infected plants, apply mancozeb fungicide'
+            1: 'Apply copper fungicide, remove infected leaves',
+            2: 'Apply chlorothalonil, avoid overhead watering',
+            3: 'Remove infected plants, apply mancozeb fungicide'
         },
         'Corn___Common_rust': {
-            1: '🌱 Apply fungicide, remove infected leaves',
-            2: '🧪 Apply azoxystrobin fungicide, improve air flow',
-            3: '🚨 Apply systemic fungicide, remove severely infected plants'
+            1: 'Apply fungicide, remove infected leaves',
+            2: 'Apply azoxystrobin fungicide, improve air flow',
+            3: 'Apply systemic fungicide, remove severely infected plants'
         },
         'Apple___Apple_scab': {
-            1: '🌱 Apply organic sulfur spray, remove infected leaves',
-            2: '🧪 Apply fungicide (myclobutanil), prune affected branches',
-            3: '🚨 Apply systemic fungicide, remove severely infected branches'
+            1: 'Apply organic sulfur spray, remove infected leaves',
+            2: 'Apply fungicide (myclobutanil), prune affected branches',
+            3: 'Apply systemic fungicide, remove severely infected branches'
         }
     }
     
     default = {
-        0: '✅ Plant is healthy - Continue regular care',
-        1: '🌱 Monitor plant health, consider preventive measures',
-        2: '🧪 Apply appropriate fungicide, consult local expert',
-        3: '🚨 Remove affected parts, apply treatment immediately'
+        0: 'Plant is healthy - Continue regular care',
+        1: 'Monitor plant health, consider preventive measures',
+        2: 'Apply appropriate fungicide, consult local expert',
+        3: 'Remove affected parts, apply treatment immediately'
     }
     
     if disease in treatments and severity in treatments[disease]:
         return treatments[disease][severity]
-    return default.get(severity, '👨‍🌾 Consult local expert')
+    return default.get(severity, 'Consult local expert')
 
 # ======================================================================
 # FOOLPROOF LEAF DETECTION - DETECTS ALL LEAVES!
@@ -372,7 +372,7 @@ def get_treatment(disease, severity):
 def is_leaf_image(image):
     """
     FOOLPROOF leaf detection:
-    - Rule 1: If it has texture AND is NOT human skin → It's a leaf!
+    - Rule 1: If it has texture AND is NOT human skin -> It's a leaf!
     - This detects ALL leaves: green, yellow, rusty, rotten, brown!
     """
     img_array = np.array(image)
@@ -561,12 +561,12 @@ def smart_analysis(image):
 
 with st.sidebar:
     st.markdown("🌿")
-    st.markdown("## 🌾 Crop Disease AI")
+    st.markdown("## Crop Disease AI")
     st.markdown("*Protecting Pakistan's Agriculture*")
     
     st.markdown("---")
     
-    st.markdown("### 📋 Model Info")
+    st.markdown("### Model Info")
     st.markdown("""
     | Property | Value |
     |----------|-------|
@@ -578,18 +578,18 @@ with st.sidebar:
     
     st.markdown("---")
     
-    st.markdown("### 📊 Severity Guide")
+    st.markdown("### Severity Guide")
     for label in severity_labels:
         st.markdown(f"{label}")
     
     st.markdown("---")
     
-    st.markdown("### 🇵🇰 Pakistan Agriculture")
+    st.markdown("### Pakistan Agriculture")
     st.markdown("""
-    - **GDP:** 24%
-    - **Workforce:** 42%
-    - **Crops:** Wheat, Rice, Cotton
-    - **Challenge:** 40% yield loss
+    - GDP: 24%
+    - Workforce: 42%
+    - Crops: Wheat, Rice, Cotton
+    - Challenge: 40% yield loss
     """)
     
     st.markdown("---")
@@ -608,7 +608,7 @@ with st.sidebar:
 
 st.markdown("""
 <div style="text-align: center; padding: 10px 0 20px 0;">
-    <h1 style="font-size: 3.8rem;">🌾 Crop Disease Detection</h1>
+    <h1 style="font-size: 3.8rem;">Crop Disease Detection</h1>
     <p style="font-size: 1.3rem; color: #2e7d32; font-weight: 500;">
         AI-Powered Diagnosis for Pakistan's Farmers
     </p>
@@ -662,7 +662,7 @@ st.markdown("---")
 # MAIN UPLOAD SECTION
 # ======================================================================
 
-st.markdown("### 📸 Upload a Leaf Image for Diagnosis")
+st.markdown("### Upload a Leaf Image for Diagnosis")
 
 uploaded_file = st.file_uploader(
     "Choose an image...",
@@ -689,19 +689,19 @@ if uploaded_file is not None:
             green_std = np.std(img_array[:, :, 1])
             red_green_diff = abs(red - green)
             
-            st.caption(f"📊 Analysis: 🟢 Green: {green:.0f} | 🔴 Red: {red:.0f} | 🔵 Blue: {blue:.0f}")
-            st.caption(f"📊 Texture: {green_std:.1f} | Red-Green Diff: {red_green_diff:.0f}")
+            st.caption(f"Analysis: Green: {green:.0f} | Red: {red:.0f} | Blue: {blue:.0f}")
+            st.caption(f"Texture: {green_std:.1f} | Red-Green Diff: {red_green_diff:.0f}")
         
         if is_leaf:
             st.markdown("""
             <div class="alert-success">
-                ✅ <strong>Leaf Detected!</strong> Image is ready for analysis.
+                <strong>Leaf Detected!</strong> Image is ready for analysis.
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="alert-danger">
-                ⚠️ <strong>Warning:</strong> This does not appear to be a leaf image.
+                <strong>Warning:</strong> This does not appear to be a leaf image.
                 <br>Please upload a clear photo of a plant leaf for accurate diagnosis.
             </div>
             """, unsafe_allow_html=True)
@@ -709,23 +709,23 @@ if uploaded_file is not None:
             st.markdown("""
             <div style="background: #f5f5f5; border-radius: 12px; padding: 15px; margin-top: 10px;">
                 <p style="font-size: 0.9rem; color: #666; margin: 0;">
-                    💡 <strong>Tips for best results:</strong><br>
-                    • 📸 Use a well-lit photo<br>
-                    • 🌿 Show the entire leaf<br>
-                    • 🎯 Keep the leaf in focus<br>
-                    • 🌱 Use a plain background
+                    <strong>Tips for best results:</strong><br>
+                    - Use a well-lit photo<br>
+                    - Show the entire leaf<br>
+                    - Keep the leaf in focus<br>
+                    - Use a plain background
                 </p>
             </div>
             """, unsafe_allow_html=True)
     
     with col2:
-        if st.button("🔍 Analyze Disease", use_container_width=True):
-            with st.spinner("🧠 Analyzing with AI..."):
+        if st.button("Analyze Disease", use_container_width=True):
+            with st.spinner("Analyzing with AI..."):
                 
                 if not is_leaf:
                     st.markdown("""
                     <div class="alert-warning">
-                        ⚠️ This doesn't appear to be a leaf. Please upload a leaf image.
+                        This doesn't appear to be a leaf. Please upload a leaf image.
                     </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -766,29 +766,29 @@ if uploaded_file is not None:
                         
                         st.markdown(f"""
                         <div class="result-card {severity_class}">
-                            <h3 style="margin-top:0; color: #1b5e20;">✅ Analysis Complete</h3>
+                            <h3 style="margin-top:0; color: #1b5e20;">Analysis Complete</h3>
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        st.markdown(f"### 🦠 Disease Detected")
+                        st.markdown(f"### Disease Detected")
                         st.markdown(f"**{result['disease'].replace('_', ' ')}**")
                         st.progress(result['confidence']/100)
                         st.caption(f"Confidence: {result['confidence']:.1f}%")
                         
-                        st.markdown(f"### 📊 Severity Level")
+                        st.markdown(f"### Severity Level")
                         st.markdown(f"**{severity_labels[result['severity']]}**")
                         
-                        st.markdown(f"### 💊 Recommended Treatment")
+                        st.markdown(f"### Recommended Treatment")
                         st.info(treatment)
                         
                         if result['severity'] == 0:
-                            st.success("✅ Plant is healthy! Continue regular care.")
+                            st.success("Plant is healthy! Continue regular care.")
                         elif result['severity'] == 1:
-                            st.warning("⚠️ Early stage detected - take preventive action")
+                            st.warning("Early stage detected - take preventive action")
                         elif result['severity'] == 2:
-                            st.warning("⚠️ Moderate infection - intervention required")
+                            st.warning("Moderate infection - intervention required")
                         else:
-                            st.error("🚨 Severe infection - immediate action needed!")
+                            st.error("Severe infection - immediate action needed!")
 
 else:
     st.markdown("""
@@ -796,8 +796,8 @@ else:
         <span class="icon">🌿</span>
         <h3>Upload a Leaf Image</h3>
         <p>Click the button above to select an image</p>
-        <p style="color: #999; font-size: 0.85rem;">📸 Supports: JPG, PNG, BMP</p>
-        <p style="color: #999; font-size: 0.85rem;">💡 For best results, use clear, well-lit images</p>
+        <p style="color: #999; font-size: 0.85rem;">Supports: JPG, PNG, BMP</p>
+        <p style="color: #999; font-size: 0.85rem;">For best results, use clear, well-lit images</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -818,7 +818,7 @@ st.markdown(f"""
 # DISEASE GUIDE SECTION
 # ======================================================================
 
-with st.expander("📊 Common Crop Diseases - Quick Guide", expanded=False):
+with st.expander("Common Crop Diseases - Quick Guide", expanded=False):
     st.markdown("""
     <style>
     .disease-guide-table {
@@ -847,27 +847,27 @@ with st.expander("📊 Common Crop Diseases - Quick Guide", expanded=False):
             <th>Treatment</th>
         </tr>
         <tr>
-            <td>🍅 <strong>Tomato Late Blight</strong></td>
+            <td>Tomato Late Blight</td>
             <td>Dark spots, white mold on leaves</td>
             <td>Apply fungicide, remove infected plants</td>
         </tr>
         <tr>
-            <td>🌽 <strong>Corn Rust</strong></td>
+            <td>Corn Rust</td>
             <td>Brown/orange pustules on leaves</td>
             <td>Apply fungicide, use resistant varieties</td>
         </tr>
         <tr>
-            <td>🍎 <strong>Apple Scab</strong></td>
+            <td>Apple Scab</td>
             <td>Olive-green spots, leaf curling</td>
             <td>Fungicide spray, prune affected branches</td>
         </tr>
         <tr>
-            <td>🥔 <strong>Potato Late Blight</strong></td>
+            <td>Potato Late Blight</td>
             <td>Dark lesions, white mold growth</td>
             <td>Apply fungicide, remove infected plants</td>
         </tr>
         <tr>
-            <td>🍇 <strong>Grape Black Rot</strong></td>
+            <td>Grape Black Rot</td>
             <td>Dark spots, fruit rot</td>
             <td>Systemic fungicide, remove affected vines</td>
         </tr>
@@ -883,69 +883,22 @@ st.markdown("---")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("🇵🇰 **Pakistan Agriculture AI**")
+    st.markdown("Pakistan Agriculture AI")
 
 with col2:
-    st.markdown("🌿 **For Farmers, By Farmers**")
+    st.markdown("For Farmers, By Farmers")
 
 with col3:
-    st.markdown(f"📅 {datetime.now().strftime('%B %Y')}")
+    st.markdown(f"{datetime.now().strftime('%B %Y')}")
 
 st.markdown("""
 <div class="footer">
-    <p style="font-size: 1rem; font-weight: 500;">🌾 Protecting Pakistan's Crops with Artificial Intelligence</p>
+    <p style="font-size: 1rem; font-weight: 500;">Protecting Pakistan's Crops with Artificial Intelligence</p>
     <p style="color: #999; font-size: 0.8rem;">
         Built with <span class="heart">❤️</span> for the farmers of Pakistan
     </p>
     <p style="color: #bbb; font-size: 0.7rem;">
-        🇵🇰 Together for a greener, prosperous Pakistan
+        Together for a greener, prosperous Pakistan
     </p>
 </div>
-""", unsafe_allow_html=True)
-
-       
-        
-    
-      
-    
-        
-       
-  
-       
-       
-       
-      
-    
-            
-    
-   
-   
-    
-    
-    
-        
-      
-        
-        
- 
-       
-          
-            
-    
-  
-
-
-
-   
-  
-            
-          
-                   
-                                            
-                   
-       
-      
-   
-
-
 """, unsafe_allow_html=True)
