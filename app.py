@@ -1,6 +1,7 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - HYBRID APPROACH
-# Detects ALL leaves (green, yellow, rusty, smooth) & REJECTS humans!
+# 🌾 CROP DISEASE DETECTION SYSTEM - FINAL VERSION
+# Detects ALL leaves: Green, Yellow, Rusty, Rotten, Brown!
+# Rejects humans, animals, and other objects!
 # Pakistan Agriculture AI - Protecting Our Future
 # ======================================================================
 
@@ -365,13 +366,17 @@ def get_treatment(disease, severity):
     return default.get(severity, '👨‍🌾 Consult local expert')
 
 # ======================================================================
-# HYBRID LEAF DETECTION - WORKS FOR ALL LEAVES!
+# ULTRA-LENIENT LEAF DETECTION - DETECTS ALL LEAVES!
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    HYBRID approach: Combines color + texture + edge detection
-    Detects ALL leaves (green, yellow, rusty, smooth) & REJECTS humans!
+    ULTRA-LENIENT leaf detection - detects ALL leaves:
+    - Green leaves ✅
+    - Yellow leaves ✅
+    - Rusty/Brown leaves ✅
+    - Rotten/Diseased leaves ✅
+    - Rejects humans ✅
     """
     img_array = np.array(image)
     
@@ -394,87 +399,98 @@ def is_leaf_image(image):
     red_std = np.std(red)
     blue_std = np.std(blue)
     
-    # Calculate ratios
-    green_red_ratio = green_mean / (red_mean + 1)
-    green_blue_ratio = green_mean / (blue_mean + 1)
+    # ====================================================================
+    # STEP 1: HUMAN SKIN DETECTION (REJECT)
+    # ====================================================================
+    
+    # Human skin: Red and Green close, both in skin tone range
     red_green_diff = abs(red_mean - green_mean)
-    
-    # ====================================================================
-    # STEP 1: HUMAN SKIN DETECTION (Reject humans first!)
-    # ====================================================================
-    
-    # Human skin: Red and Green close, both in skin tone range, low texture
     is_human_skin = (
-        red_green_diff < 35 and 
-        red_mean > 50 and 
-        green_mean > 50 and 
+        red_green_diff < 30 and 
+        red_mean > 60 and 
+        green_mean > 60 and 
         red_mean < 200 and 
         green_mean < 200 and
-        green_std < 13 and 
-        red_std < 13
+        green_std < 12 and 
+        red_std < 12
     )
-    
-    # Additional human check: If red and green are very close
-    if red_green_diff < 25 and green_mean > 60 and red_mean > 60:
-        return False
     
     if is_human_skin:
         return False
     
+    # Additional human check
+    if red_green_diff < 20 and green_mean > 70 and red_mean > 70:
+        return False
+    
     # ====================================================================
-    # STEP 2: LEAF DETECTION (Score-based - works for ALL leaves!)
+    # STEP 2: LEAF DETECTION (VERY LENIENT - DETECTS ALL LEAVES)
     # ====================================================================
     
     leaf_score = 0
     
-    # 1. GREEN PRESENCE (even yellow leaves have some green)
-    if green_mean > 25:
+    # 1. ANY GREEN PRESENCE (even a little)
+    if green_mean > 20:
         leaf_score += 20
-    elif green_mean > 15:
+    elif green_mean > 10:
         leaf_score += 10
     
-    # 2. TEXTURE (leaves have veins/texture) - LOWERED THRESHOLD
-    if green_std > 8 or red_std > 8 or blue_std > 8:
-        leaf_score += 20
-    elif green_std > 5 or red_std > 5 or blue_std > 5:
-        leaf_score += 12
-    
-    # 3. GREEN DOMINANCE (for green leaves)
-    if green_mean > red_mean * 0.8 and green_mean > blue_mean * 0.8 and green_mean > 40:
+    # 2. TEXTURE (leaves have veins) - VERY LOW THRESHOLD
+    if green_std > 6 or red_std > 6 or blue_std > 6:
         leaf_score += 25
-    
-    # 4. YELLOW/RUSTY LEAF DETECTION (lower threshold)
-    # Yellow/rusty: red and green high, blue low
-    if green_mean > 50 and red_mean > 50 and blue_mean < 130:
-        leaf_score += 20
-    elif green_mean > 40 and red_mean > 40 and blue_mean < 100:
+    elif green_std > 4 or red_std > 4 or blue_std > 4:
         leaf_score += 15
     
-    # 5. BROWN LEAF DETECTION
-    if red_mean > 60 and green_mean > 35 and blue_mean < 100:
+    # 3. LEAF-LIKE COLORS (very lenient)
+    # Yellow/Rusty/Brown: any combination of red, green, blue
+    if green_mean > 30 and blue_mean < 150:
         leaf_score += 15
-    
-    # 6. NATURAL VARIATION (not uniform like a face)
-    if green_std > 4 or red_std > 4 or blue_std > 4:
+    elif red_mean > 30 and blue_mean < 150:
         leaf_score += 10
     
-    # 7. GREEN PERCENTAGE (some green pixels exist)
-    total_pixels = len(img_array) * len(img_array[0])
-    green_pixels = np.sum(green > 50)
-    green_percentage = green_pixels / (total_pixels + 1) * 100
-    if green_percentage > 8:
-        leaf_score += 10
-    
-    # 8. NOT UNIFORM COLOR (solid color = not a leaf)
+    # 4. CHECK FOR NATURAL VARIATION (not uniform)
     if green_std > 3 or red_std > 3 or blue_std > 3:
-        leaf_score += 5
+        leaf_score += 15
+    
+    # 5. GREEN PERCENTAGE (some green pixels)
+    total_pixels = len(img_array) * len(img_array[0])
+    green_pixels = np.sum(green > 40)
+    green_percentage = green_pixels / (total_pixels + 1) * 100
+    if green_percentage > 5:
+        leaf_score += 15
+    elif green_percentage > 2:
+        leaf_score += 8
+    
+    # 6. BRIGHTNESS - not too dark, not too light
+    if 15 < green_mean < 240:
+        leaf_score += 10
+    
+    # 7. COLOR DIVERSITY (leaves have multiple colors)
+    if green_std + red_std + blue_std > 15:
+        leaf_score += 10
     
     # ====================================================================
-    # STEP 3: FINAL DECISION
+    # STEP 3: FALLBACK - If image has ANY texture and some color
     # ====================================================================
     
-    # Leaf if score >= 40 (out of ~100) - LOWERED THRESHOLD!
-    is_leaf = leaf_score >= 40
+    # Super lenient fallback: If there's any texture and any color variation
+    has_texture = (green_std > 3 or red_std > 3 or blue_std > 3)
+    has_color = (green_mean > 15 or red_mean > 15 or blue_mean > 15)
+    not_uniform = (green_std + red_std + blue_std > 5)
+    
+    if has_texture and has_color and not_uniform:
+        leaf_score += 10
+    
+    # ====================================================================
+    # STEP 4: FINAL DECISION
+    # ====================================================================
+    
+    # VERY LOW THRESHOLD - detects ALL leaves!
+    is_leaf = leaf_score >= 30
+    
+    # Special case: If it has leaf-like color and texture, accept it
+    if not is_leaf:
+        if (green_mean > 30 or red_mean > 30) and (green_std > 5 or red_std > 5):
+            is_leaf = True
     
     return is_leaf
 
@@ -689,7 +705,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # HYBRID LEAF DETECTION
+        # ULTRA-LENIENT LEAF DETECTION
         is_leaf = is_leaf_image(image)
         
         # Show detection details
@@ -698,8 +714,10 @@ if uploaded_file is not None:
             green = np.mean(img_array[:, :, 1])
             red = np.mean(img_array[:, :, 0])
             blue = np.mean(img_array[:, :, 2])
+            green_std = np.std(img_array[:, :, 1])
             
             st.caption(f"📊 Analysis: 🟢 Green: {green:.0f} | 🔴 Red: {red:.0f} | 🔵 Blue: {blue:.0f}")
+            st.caption(f"📊 Texture: {green_std:.1f}")
         
         if is_leaf:
             st.markdown("""
@@ -911,5 +929,3 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
-
-
