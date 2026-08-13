@@ -317,7 +317,7 @@ QUOTES = [
 ]
 
 # ======================================================================
-# FUNCTIONS - FIXED!
+# FUNCTIONS
 # ======================================================================
 
 def get_severity(disease_name):
@@ -365,7 +365,7 @@ def get_treatment(disease, severity):
     return default.get(severity, '👨‍🌾 Consult local expert')
 
 # ======================================================================
-# PERFECT LEAF DETECTION - FINAL WORKING VERSION!
+# PERFECT LEAF DETECTION - HUMANS REJECTED!
 # ======================================================================
 
 def is_leaf_image(image):
@@ -398,24 +398,30 @@ def is_leaf_image(image):
     blue_std = np.std(blue)
     
     # Calculate ratios
-    green_red_ratio = green_mean / (red_mean + 1)
-    green_blue_ratio = green_mean / (blue_mean + 1)
     red_green_diff = abs(red_mean - green_mean)
     
-    # ----- STEP 1: REJECT HUMANS -----
-    # Human skin: red and green are close, low texture
+    # ----- STEP 1: REJECT HUMANS (MUST BE FIRST!) -----
+    # Human skin characteristics:
+    # 1. Red and Green are close (red-green diff < 35)
+    # 2. Both red and green are in skin tone range (50-200)
+    # 3. Low texture (std < 15) - skin is smooth
+    # 4. Blue is lower than red and green
+    
     is_human_skin = (
-        red_green_diff < 30 and 
-        red_mean > 70 and 
-        green_mean > 70 and 
-        green_std < 12 and 
-        red_std < 12
+        red_green_diff < 35 and 
+        red_mean > 50 and 
+        green_mean > 50 and 
+        red_mean < 200 and 
+        green_mean < 200 and
+        green_std < 15 and 
+        red_std < 15 and
+        blue_mean < red_mean * 0.9
     )
     
     if is_human_skin:
         return False
     
-    # ----- STEP 2: DETECT LEAVES (including yellow/rusty) -----
+    # ----- STEP 2: DETECT LEAVES -----
     
     leaf_score = 0
     
@@ -695,7 +701,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # PERFECT LEAF DETECTION - Humans Rejected, Yellow Leaves Accepted!
+        # PERFECT LEAF DETECTION
         is_leaf = is_leaf_image(image)
         
         # Show detection details
