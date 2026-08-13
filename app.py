@@ -1,50 +1,5 @@
-# ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - SIMPLEST VERSION
-# Detects ALL leaves: Green, Yellow, Rusty, Rotten, Brown!
-# Only rejects humans!
-# Pakistan Agriculture AI
-# ======================================================================
 
-import streamlit as st
-from PIL import Image
-import numpy as np
-import requests
-import io
-import base64
-import time
-import random
-from datetime import datetime
-
-# ======================================================================
-# PAGE CONFIG
-# ======================================================================
-
-st.set_page_config(
-    page_title="🌾 Crop Disease Detection - Pakistan Agriculture AI",
-    page_icon="🌿",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# ======================================================================
-# CUSTOM CSS
-# ======================================================================
-
-st.markdown("""
-<style>
-    .stApp {
-        background: linear-gradient(135deg, #f1f8e9 0%, #dcedc8 25%, #c5e1a5 50%, #a5d6a7 75%, #81c784 100%);
-        background-attachment: fixed;
-    }
-    
-    .css-1d391kg {
-        background: linear-gradient(180deg, rgba(27, 94, 32, 0.97) 0%, rgba(15, 60, 35, 0.99) 100%) !important;
-        backdrop-filter: blur(15px);
-        border-radius: 25px !important;
-        margin: 10px !important;
-        padding: 25px !important;
-        color: white !important;
-        border: 1px solid rgba(255,255,255,0.1);
+  
         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
     }
     .css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3 {
