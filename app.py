@@ -1,7 +1,7 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - FINAL FIX
+# 🌾 CROP DISEASE DETECTION SYSTEM - SIMPLEST VERSION
 # Detects ALL leaves: Green, Yellow, Rusty, Rotten, Brown!
-# Rejects humans!
+# Only rejects humans!
 # Pakistan Agriculture AI
 # ======================================================================
 
@@ -366,21 +366,20 @@ def get_treatment(disease, severity):
     return default.get(severity, 'Consult local expert')
 
 # ======================================================================
-# PERFECT LEAF DETECTION - FIXED!
+# SIMPLEST LEAF DETECTION - ONLY REJECTS HUMANS!
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    PERFECT leaf detection:
-    - ANY color (green, yellow, brown, red) is fine.
-    - ANY texture is fine (smooth leaves also have some texture).
-    - Rejects humans based on skin tone and smoothness.
+    SIMPLEST APPROACH:
+    - Accepts EVERYTHING as a leaf
+    - EXCEPT: Human faces/skin
     """
     img_array = np.array(image)
     
     # Check if image has 3 channels (RGB)
     if len(img_array.shape) != 3:
-        return False
+        return True  # Grayscale is accepted as leaf
     
     # Extract channels
     green = img_array[:, :, 1].astype(np.float32)
@@ -398,12 +397,15 @@ def is_leaf_image(image):
     blue_std = np.std(blue)
     
     # ====================================================================
-    # STEP 1: REJECT HUMANS (Most important)
+    # ONLY REJECT HUMANS
     # ====================================================================
     
     red_green_diff = abs(red_mean - green_mean)
     
-    # Human skin: Red and Green close, both in 50-200 range, low texture
+    # Human skin detection:
+    # - Red and Green are close (diff < 35)
+    # - Both in skin tone range (50-200)
+    # - Low texture (skin is smooth, std < 14)
     is_human_skin = (
         red_green_diff < 35 and 
         red_mean > 50 and 
@@ -414,47 +416,19 @@ def is_leaf_image(image):
         red_std < 14
     )
     
-    if is_human_skin:
-        return False
-    
     # Extra human check: if red and green are very close
     if red_green_diff < 20 and green_mean > 60 and red_mean > 60:
         return False
     
-    # ====================================================================
-    # STEP 2: DETECT LEAVES (Very lenient)
-    # ====================================================================
-    
-    # A leaf must have SOME color (not pure black/white)
-    has_color = (green_mean > 5 or red_mean > 5 or blue_mean > 5)
-    
-    # A leaf must have SOME texture (veins or surface variation)
-    # Lowered from 5 to 3 to catch smooth leaves
-    has_texture = (green_std > 3 or red_std > 3 or blue_std > 3)
-    
-    # Not a solid color block
-    not_solid = (green_std + red_std + blue_std > 4)
+    # If it's human skin -> REJECT
+    if is_human_skin:
+        return False
     
     # ====================================================================
-    # STEP 3: FALLBACK FOR LEAF-LIKE COLORS
+    # EVERYTHING ELSE IS A LEAF!
     # ====================================================================
     
-    # Check for greenish, yellowish, or brownish tones
-    is_greenish = (green_mean > red_mean * 0.7 and green_mean > blue_mean * 0.7)
-    is_yellowish = (red_mean > 40 and green_mean > 40 and blue_mean < 130)
-    is_brownish = (red_mean > 50 and green_mean > 25 and blue_mean < 100)
-    is_leaf_color = is_greenish or is_yellowish or is_brownish
-    
-    # ====================================================================
-    # FINAL DECISION
-    # ====================================================================
-    
-    # ACCEPT if:
-    # 1. It has color AND texture, OR
-    # 2. It has leaf-like color AND some variation
-    is_leaf = (has_color and has_texture and not_solid) or (is_leaf_color and not_solid)
-    
-    return is_leaf
+    return True
 
 def predict_with_api(image):
     try:
@@ -667,7 +641,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # PERFECT LEAF DETECTION
+        # SIMPLEST LEAF DETECTION
         is_leaf = is_leaf_image(image)
         
         # Show detection details
@@ -691,8 +665,8 @@ if uploaded_file is not None:
         else:
             st.markdown("""
             <div class="alert-danger">
-                ⚠️ <strong>Warning:</strong> This does not appear to be a leaf image.
-                <br>Please upload a clear photo of a plant leaf for accurate diagnosis.
+                ⚠️ <strong>Warning:</strong> This appears to be a human face/image.
+                <br>Please upload a plant leaf image for diagnosis.
             </div>
             """, unsafe_allow_html=True)
             
@@ -715,7 +689,7 @@ if uploaded_file is not None:
                 if not is_leaf:
                     st.markdown("""
                     <div class="alert-warning">
-                        ⚠️ This doesn't appear to be a leaf. Please upload a leaf image.
+                        ⚠️ This appears to be a human image. Please upload a leaf image.
                     </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -892,3 +866,7 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+   
+     
+ 
+         
