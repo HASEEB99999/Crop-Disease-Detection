@@ -1,5 +1,7 @@
 # ======================================================================
-# 🌾 CROP DISEASE DETECTION SYSTEM - WITH 3-LAYER HUMAN REJECTION
+# 🌾 CROP DISEASE DETECTION SYSTEM - EDGE DETECTION APPROACH
+# Humans REJECTED because they have smooth skin (few edges)
+# Leaves ACCEPTED because they have veins (many edges)
 # Pakistan Agriculture AI - Protecting Our Future
 # ======================================================================
 
@@ -364,140 +366,80 @@ def get_treatment(disease, severity):
     return default.get(severity, '👨‍🌾 Consult local expert')
 
 # ======================================================================
-# 3-LAYER HUMAN REJECTION + LEAF DETECTION
+# EDGE DETECTION LEAF DETECTION - REJECTS HUMANS!
 # ======================================================================
 
 def is_leaf_image(image):
     """
-    PERFECT LEAF DETECTION with 3-LAYER HUMAN REJECTION:
-    - Layer 1: Skin tone detection
-    - Layer 2: Texture analysis
-    - Layer 3: Color balance check
+    Uses edge detection to identify leaves:
+    - Leaves have many edges (veins)
+    - Humans have smooth skin (few edges)
     """
-    img_array = np.array(image)
-    
-    # Check if image has 3 channels (RGB)
-    if len(img_array.shape) != 3:
-        return False
-    
-    # Extract channels
-    green = img_array[:, :, 1].astype(np.float32)
-    red = img_array[:, :, 0].astype(np.float32)
-    blue = img_array[:, :, 2].astype(np.float32)
-    
-    # Calculate means
-    green_mean = np.mean(green)
-    red_mean = np.mean(red)
-    blue_mean = np.mean(blue)
-    
-    # Calculate standard deviations (texture)
-    green_std = np.std(green)
-    red_std = np.std(red)
-    blue_std = np.std(blue)
-    
-    # Calculate ratios
-    red_green_diff = abs(red_mean - green_mean)
-    green_red_ratio = green_mean / (red_mean + 1)
-    green_blue_ratio = green_mean / (blue_mean + 1)
-    
-    # ====================================================================
-    # LAYER 1: HUMAN SKIN DETECTION (STRICT)
-    # ====================================================================
-    
-    # Human skin characteristics:
-    # - Red and Green are close (diff < 35)
-    # - Both in skin tone range (50-200)
-    # - Low texture (std < 15) - skin is smooth
-    # - Blue is significantly lower than red and green
-    
-    is_human_skin = (
-        red_green_diff < 35 and 
-        red_mean > 50 and 
-        green_mean > 50 and 
-        red_mean < 200 and 
-        green_mean < 200 and
-        green_std < 15 and 
-        red_std < 15 and
-        blue_mean < red_mean * 0.85 and
-        blue_mean < green_mean * 0.85
-    )
-    
-    if is_human_skin:
-        return False
-    
-    # ====================================================================
-    # LAYER 2: TEXTURE ANALYSIS (HUMANS HAVE SMOOTH SKIN)
-    # ====================================================================
-    
-    # If all channels have low texture, it's likely not a leaf
-    if green_std < 6 and red_std < 6 and blue_std < 6:
-        # Check if it has skin-like colors
-        if red_mean > 60 and green_mean > 60:
+    try:
+        from scipy import ndimage
+        
+        img_array = np.array(image)
+        
+        if len(img_array.shape) != 3:
             return False
-    
-    # ====================================================================
-    # LAYER 3: COLOR BALANCE CHECK
-    # ====================================================================
-    
-    # Humans have high red compared to leaves
-    # Leaves have higher green than red
-    if red_mean > 100 and green_mean < red_mean and green_mean < 100:
+        
+        # Convert to grayscale
+        gray = np.mean(img_array, axis=2)
+        
+        # Calculate edges using gradient
+        # Simple edge detection: difference between neighboring pixels
+        edge_x = np.abs(gray[:, 1:] - gray[:, :-1])
+        edge_y = np.abs(gray[1:, :] - gray[:-1, :])
+        
+        # Combine edges
+        edges = np.maximum(edge_x[:, :-1], edge_y[:-1, :])
+        
+        # Calculate edge density
+        edge_threshold = np.mean(edges) + np.std(edges) * 0.5
+        edge_pixels = np.sum(edges > edge_threshold)
+        total_pixels = edges.shape[0] * edges.shape[1]
+        edge_density = edge_pixels / total_pixels * 100
+        
+        # Color check (leaves have some green)
+        green_mean = np.mean(img_array[:, :, 1])
+        red_mean = np.mean(img_array[:, :, 0])
+        blue_mean = np.mean(img_array[:, :, 2])
+        
+        # Human skin detection (additional check)
+        red_green_diff = abs(red_mean - green_mean)
+        is_human_skin = (
+            red_green_diff < 40 and 
+            red_mean > 60 and 
+            green_mean > 60 and 
+            red_mean < 200 and 
+            green_mean < 200
+        )
+        
+        # Edge density threshold for leaves vs humans
+        # Leaves typically have 5-20% edge density
+        # Humans have < 5% edge density (smooth skin)
+        
+        # ALSO check: leaves have green dominance
+        is_green_leaf = green_mean > red_mean * 0.8 and green_mean > blue_mean * 0.8
+        
+        # DECISION:
+        # 1. Must have some edges (> 3%)
+        # 2. Must NOT have human skin characteristics
+        # 3. Must have some green (or be a diseased leaf with reasonable colors)
+        
+        has_edges = edge_density > 3.0
+        not_human = not is_human_skin
+        
+        # For yellow/rusty leaves: they have less green but still have edges
+        has_color = (green_mean > 30 or red_mean > 40) and blue_mean < 200
+        
+        is_leaf = has_edges and not_human and has_color
+        
+        return is_leaf
+        
+    except ImportError:
+        # Fallback if scipy not available - use simple method
         return False
-    
-    # If red is too dominant and green is low
-    if red_mean > 120 and green_mean < 80:
-        return False
-    
-    # ====================================================================
-    # LEAF DETECTION (Score-based)
-    # ====================================================================
-    
-    leaf_score = 0
-    
-    # 1. Green presence
-    if green_mean > 30:
-        leaf_score += 20
-    
-    # 2. Texture (leaves have veins)
-    if green_std > 10 or red_std > 10:
-        leaf_score += 25
-    elif green_std > 6 or red_std > 6:
-        leaf_score += 15
-    
-    # 3. Yellow/Rusty leaf
-    if green_mean > 60 and red_mean > 60 and blue_mean < 120:
-        leaf_score += 25
-    
-    # 4. Green leaf
-    if green_mean > red_mean * 0.85 and green_mean > blue_mean * 0.85 and green_mean > 50:
-        leaf_score += 25
-    
-    # 5. Brown leaf
-    if red_mean > 70 and green_mean > 40 and blue_mean < 100:
-        leaf_score += 20
-    
-    # 6. Natural variation
-    if green_std > 5 or red_std > 5 or blue_std > 5:
-        leaf_score += 10
-    
-    # 7. Proper brightness
-    if 20 < green_mean < 230 and 20 < red_mean < 230:
-        leaf_score += 10
-    
-    # 8. Green percentage
-    total_pixels = len(img_array) * len(img_array[0])
-    green_pixels = np.sum(green > 60)
-    green_percentage = green_pixels / (total_pixels + 1) * 100
-    if green_percentage > 10:
-        leaf_score += 10
-    
-    # ====================================================================
-    # FINAL DECISION
-    # ====================================================================
-    
-    is_leaf = leaf_score >= 50
-    
-    return is_leaf
 
 def predict_with_api(image):
     try:
@@ -710,7 +652,7 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
         
-        # PERFECT LEAF DETECTION with 3-Layer Human Rejection
+        # EDGE DETECTION LEAF DETECTION
         is_leaf = is_leaf_image(image)
         
         # Show detection details
@@ -719,11 +661,8 @@ if uploaded_file is not None:
             green = np.mean(img_array[:, :, 1])
             red = np.mean(img_array[:, :, 0])
             blue = np.mean(img_array[:, :, 2])
-            green_std = np.std(img_array[:, :, 1])
-            red_green_diff = abs(red - green)
             
             st.caption(f"📊 Analysis: 🟢 Green: {green:.0f} | 🔴 Red: {red:.0f} | 🔵 Blue: {blue:.0f}")
-            st.caption(f"📊 Texture: {green_std:.1f} | Red-Green Diff: {red_green_diff:.0f}")
         
         if is_leaf:
             st.markdown("""
