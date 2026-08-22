@@ -801,13 +801,5 @@ with col2:
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style="text-align: center; padding: 1rem 0 0.5rem 0;">
-    <span style="color: rgba(255, 248, 225, 0.6); font-size: 0.9rem;">
-        🌾 EfficientNetB0 · 85% Accuracy · 38 Classes
 
-    <br>
-    <span style="color: rgba(255, 248, 225, 0.4); font-size: 0.8rem;">
-        
-    </span>
-</div>
 """, unsafe_allow_html=True)
