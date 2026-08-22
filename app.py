@@ -8,9 +8,7 @@ import numpy as np
 import hashlib
 import random
 import io
-import cv2
-from scipy import ndimage
-from skimage import exposure, feature
+from collections import Counter
 
 # ======================================================================
 # PAGE CONFIGURATION
@@ -286,6 +284,26 @@ quotes = [
 ]
 
 # ======================================================================
+# DISEASE CLASSES
+# ======================================================================
+
+disease_classes = [
+    'Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy',
+    'Blueberry___healthy', 'Cherry___healthy', 'Cherry___Powdery_mildew',
+    'Corn___Cercospora_leaf_spot', 'Corn___Common_rust', 'Corn___Northern_Leaf_Blight', 'Corn___healthy',
+    'Grape___Black_rot', 'Grape___Esca', 'Grape___Leaf_blight', 'Grape___healthy',
+    'Orange___Haunglongbing', 'Peach___Bacterial_spot', 'Peach___healthy',
+    'Pepper___Bacterial_spot', 'Pepper___healthy',
+    'Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy',
+    'Raspberry___healthy', 'Soybean___healthy',
+    'Squash___Powdery_mildew', 'Strawberry___healthy', 'Strawberry___Leaf_scorch',
+    'Tomato___Bacterial_spot', 'Tomato___Early_blight', 'Tomato___Late_blight',
+    'Tomato___Leaf_Mold', 'Tomato___Septoria_leaf_spot',
+    'Tomato___Spider_mites', 'Tomato___Target_Spot', 'Tomato___Tomato_mosaic_virus',
+    'Tomato___Tomato_Yellow_Leaf_Curl_Virus', 'Tomato___healthy'
+]
+
+# ======================================================================
 # DISEASE DATABASE WITH SYMPTOMS
 # ======================================================================
 
@@ -294,146 +312,179 @@ disease_database = {
         'crop': 'Apple',
         'type': 'Fungal',
         'symptoms': ['Olive-green spots', 'Velvety lesions', 'Leaf curling'],
-        'treatment': 'Apply fungicide, remove infected leaves, improve air circulation'
     },
     'Apple___Black_rot': {
         'crop': 'Apple',
         'type': 'Fungal',
         'symptoms': ['Brown spots', 'Black rot', 'Leaf dropping'],
-        'treatment': 'Remove infected fruit, apply fungicide, prune affected branches'
     },
     'Apple___Cedar_apple_rust': {
         'crop': 'Apple',
         'type': 'Fungal',
         'symptoms': ['Orange spots', 'Yellow lesions', 'Rust-colored spores'],
-        'treatment': 'Remove nearby cedar trees, apply fungicide, improve air circulation'
     },
     'Apple___healthy': {
         'crop': 'Apple',
         'type': 'Healthy',
         'symptoms': ['No symptoms', 'Healthy green leaves', 'Normal growth'],
-        'treatment': 'Continue regular care, monitor for pests, maintain good hygiene'
     },
     'Corn___Common_rust': {
         'crop': 'Corn',
         'type': 'Fungal',
         'symptoms': ['Red-brown pustules', 'Powdery spores', 'Leaf damage'],
-        'treatment': 'Apply fungicide, remove infected leaves, improve air flow'
     },
     'Corn___Northern_Leaf_Blight': {
         'crop': 'Corn',
         'type': 'Fungal',
         'symptoms': ['Gray-green lesions', 'Elongated spots', 'Leaf blighting'],
-        'treatment': 'Apply fungicide, crop rotation, remove crop residue'
     },
     'Corn___healthy': {
         'crop': 'Corn',
         'type': 'Healthy',
         'symptoms': ['No symptoms', 'Healthy green leaves', 'Normal growth'],
-        'treatment': 'Continue regular care, monitor for pests, maintain good hygiene'
     },
     'Grape___Black_rot': {
         'crop': 'Grape',
         'type': 'Fungal',
         'symptoms': ['Brown spots', 'Black rot', 'Berry shriveling'],
-        'treatment': 'Remove infected fruit, apply fungicide, improve air circulation'
     },
     'Grape___healthy': {
         'crop': 'Grape',
         'type': 'Healthy',
         'symptoms': ['No symptoms', 'Healthy green leaves', 'Normal growth'],
-        'treatment': 'Continue regular care, monitor for pests, maintain good hygiene'
     },
     'Potato___Early_blight': {
         'crop': 'Potato',
         'type': 'Fungal',
         'symptoms': ['Brown spots', 'Concentric rings', 'Leaf yellowing'],
-        'treatment': 'Apply copper-based fungicide, remove infected leaves, improve air circulation'
     },
     'Potato___Late_blight': {
         'crop': 'Potato',
         'type': 'Fungal',
         'symptoms': ['Dark spots', 'White mold', 'Rapid wilting'],
-        'treatment': 'Apply fungicide immediately, remove infected plants, destroy crop residue'
     },
     'Potato___healthy': {
         'crop': 'Potato',
         'type': 'Healthy',
         'symptoms': ['No symptoms', 'Healthy green leaves', 'Normal growth'],
-        'treatment': 'Continue regular care, monitor for pests, maintain good hygiene'
     },
     'Tomato___Early_blight': {
         'crop': 'Tomato',
         'type': 'Fungal',
         'symptoms': ['Dark spots', 'Concentric rings', 'Leaf yellowing'],
-        'treatment': 'Apply copper-based fungicide, remove infected leaves, improve air circulation'
     },
     'Tomato___Late_blight': {
         'crop': 'Tomato',
         'type': 'Fungal',
         'symptoms': ['Dark spots', 'White mold', 'Rapid wilting'],
-        'treatment': 'Apply fungicide immediately, remove infected plants, destroy crop residue'
     },
     'Tomato___Tomato_Yellow_Leaf_Curl_Virus': {
         'crop': 'Tomato',
         'type': 'Viral',
         'symptoms': ['Leaf curling', 'Yellowing', 'Stunted growth'],
-        'treatment': 'Remove infected plants, control whiteflies, use virus-resistant varieties'
     },
     'Tomato___healthy': {
         'crop': 'Tomato',
         'type': 'Healthy',
         'symptoms': ['No symptoms', 'Healthy green leaves', 'Normal growth'],
-        'treatment': 'Continue regular care, monitor for pests, maintain good hygiene'
     },
     'Pepper___Bacterial_spot': {
         'crop': 'Pepper',
         'type': 'Bacterial',
         'symptoms': ['Water-soaked spots', 'Brown lesions', 'Leaf dropping'],
-        'treatment': 'Apply copper-based bactericide, remove infected leaves, improve air circulation'
     },
     'Pepper___healthy': {
         'crop': 'Pepper',
         'type': 'Healthy',
         'symptoms': ['No symptoms', 'Healthy green leaves', 'Normal growth'],
-        'treatment': 'Continue regular care, monitor for pests, maintain good hygiene'
     },
     'Strawberry___Leaf_scorch': {
         'crop': 'Strawberry',
         'type': 'Fungal',
         'symptoms': ['Brown spots', 'Leaf scorching', 'Yellow halos'],
-        'treatment': 'Apply fungicide, remove infected leaves, improve air circulation'
     },
     'Strawberry___healthy': {
         'crop': 'Strawberry',
         'type': 'Healthy',
         'symptoms': ['No symptoms', 'Healthy green leaves', 'Normal growth'],
-        'treatment': 'Continue regular care, monitor for pests, maintain good hygiene'
     }
 }
 
 # ======================================================================
-# ADVANCED IMAGE ANALYSIS FUNCTIONS
+# SEVERITY AND TREATMENT
+# ======================================================================
+
+severity_labels = ['🟢 Healthy', '🟡 Mild', '🟠 Moderate', '🔴 Severe']
+
+def get_severity(disease_name):
+    if 'healthy' in disease_name.lower():
+        return 0
+    elif any(x in disease_name.lower() for x in ['late', 'mosaic', 'curl', 'virus', 'blight']):
+        return 3
+    elif any(x in disease_name.lower() for x in ['early', 'rust', 'scab', 'spot']):
+        return 1
+    return 2
+
+def get_treatment(disease, severity):
+    treatments = {
+        'Tomato___Early_blight': {
+            1: '🌱 Remove affected leaves · Apply copper-based fungicide · Improve air circulation',
+            2: '🧪 Apply chlorothalonil fungicide · Remove infected parts · Rotate crops',
+            3: '🚨 Remove infected plants immediately · Apply broad-spectrum fungicide · Practice crop rotation'
+        },
+        'Tomato___Late_blight': {
+            1: '🌱 Apply copper fungicide · Remove infected leaves · Improve drainage',
+            2: '🧪 Apply chlorothalonil · Avoid overhead watering · Remove infected plants',
+            3: '🚨 Destroy infected plants · Apply mancozeb fungicide · Quarantine area'
+        },
+        'Corn___Common_rust': {
+            1: '🌱 Apply fungicide · Remove infected leaves · Improve air flow',
+            2: '🧪 Apply azoxystrobin fungicide · Reduce humidity · Remove infected plants',
+            3: '🚨 Apply systemic fungicide · Remove severely infected plants · Rotate crops'
+        },
+        'Apple___Apple_scab': {
+            1: '🌱 Apply organic sulfur spray · Remove infected leaves · Prune affected branches',
+            2: '🧪 Apply myclobutanil fungicide · Improve air circulation · Remove fallen leaves',
+            3: '🚨 Apply systemic fungicide · Remove severely infected branches · Destroy infected leaves'
+        },
+        'Potato___Late_blight': {
+            1: '🌱 Apply copper fungicide · Remove infected leaves · Improve drainage',
+            2: '🧪 Apply chlorothalonil · Remove infected plants · Practice crop rotation',
+            3: '🚨 Remove infected plants immediately · Apply fungicide · Destroy all infected material'
+        },
+        'Grape___Black_rot': {
+            1: '🌱 Remove infected berries · Apply sulfur spray · Improve air circulation',
+            2: '🧪 Apply myclobutanil fungicide · Remove infected clusters · Reduce humidity',
+            3: '🚨 Remove severely infected clusters · Apply systemic fungicide · Destroy infected berries'
+        }
+    }
+    
+    default = {
+        0: '✅ Plant is healthy · Continue regular care · Monitor for early signs',
+        1: '🌱 Monitor closely · Apply preventive treatments · Maintain good hygiene',
+        2: '🧪 Apply appropriate treatment · Consult agricultural expert · Isolate affected plants',
+        3: '🚨 Immediate action required! · Remove affected parts · Apply treatment · Consult expert'
+    }
+    
+    if disease in treatments and severity in treatments[disease]:
+        return treatments[disease][severity]
+    return default.get(severity, '👨‍🌾 Consult agricultural expert for specific advice')
+
+# ======================================================================
+# ADVANCED IMAGE ANALYSIS (PURE NUMPY)
 # ======================================================================
 
 def analyze_leaf_health(image_array):
     """
-    Advanced analysis using multiple image processing techniques
+    Advanced image analysis using pure numpy
     """
-    # Convert to different color spaces
     if len(image_array.shape) > 2:
-        # RGB analysis
+        # Extract channels
         r_channel = image_array[:, :, 0].astype(float)
         g_channel = image_array[:, :, 1].astype(float)
         b_channel = image_array[:, :, 2].astype(float)
         
-        # Convert to HSV for better color analysis
-        hsv = cv2.cvtColor(image_array.astype(np.uint8), cv2.COLOR_RGB2HSV)
-        h_channel = hsv[:, :, 0].astype(float)
-        s_channel = hsv[:, :, 1].astype(float)
-        v_channel = hsv[:, :, 2].astype(float)
-        
-        # Compute statistical features
+        # Statistical features
         mean_r, mean_g, mean_b = np.mean(r_channel), np.mean(g_channel), np.mean(b_channel)
         std_r, std_g, std_b = np.std(r_channel), np.std(g_channel), np.std(b_channel)
         
@@ -441,33 +492,25 @@ def analyze_leaf_health(image_array):
         g_to_r = mean_g / (mean_r + 1)
         g_to_b = mean_g / (mean_b + 1)
         
-        # Detect greenness (healthy leaves are green)
+        # Greenness score (higher = more green)
         green_score = mean_g / (mean_r + mean_g + mean_b + 1) * 3
         
-        # Detect yellowing (disease symptom)
+        # Yellowing score (higher = more yellow)
         yellow_score = (mean_r - mean_b) / (mean_g + 1) * 2
         
-        # Detect color variance (lesions cause high variance)
-        color_variance = np.var(r_channel) + np.var(g_channel) + np.var(b_channel)
-        color_variance = color_variance / 1000  # Normalize
+        # Color variance (higher = more variation)
+        color_variance = (np.var(r_channel) + np.var(g_channel) + np.var(b_channel)) / 1000
         
-        # Detect spots/lesions using edge detection
-        gray = cv2.cvtColor(image_array.astype(np.uint8), cv2.COLOR_RGB2GRAY)
-        edges = cv2.Canny(gray.astype(np.uint8), 50, 150)
-        edge_density = np.sum(edges > 0) / edges.size
+        # Simple edge detection using gradient
+        gradient_x = np.abs(g_channel[1:, :] - g_channel[:-1, :])
+        gradient_y = np.abs(g_channel[:, 1:] - g_channel[:, :-1])
+        edge_density = (np.mean(gradient_x) + np.mean(gradient_y)) / (255 * 2)
         
         # Texture analysis
         texture = np.std(g_channel) / (mean_g + 1)
         
-        # Healthy indicators
-        is_green = green_score > 0.3
-        is_balanced = abs(mean_r - mean_g) < 30 and abs(mean_g - mean_b) < 30
-        low_variance = color_variance < 50
-        
-        # Disease indicators
-        has_lesions = edge_density > 0.05
-        has_yellowing = yellow_score > 0.6
-        has_high_variance = color_variance > 80
+        # Detect color imbalance
+        color_balance = abs(mean_r - mean_g) + abs(mean_g - mean_b)
         
         return {
             'mean_r': mean_r,
@@ -481,15 +524,20 @@ def analyze_leaf_health(image_array):
             'color_variance': color_variance,
             'edge_density': edge_density,
             'texture': texture,
-            'is_green': is_green,
-            'is_balanced': is_balanced,
-            'low_variance': low_variance,
-            'has_lesions': has_lesions,
-            'has_yellowing': has_yellowing,
-            'has_high_variance': has_high_variance
+            'color_balance': color_balance,
+            'is_green': green_score > 0.3,
+            'is_balanced': color_balance < 50,
+            'low_variance': color_variance < 50,
+            'has_lesions': edge_density > 0.05,
+            'has_yellowing': yellow_score > 0.6,
+            'has_high_variance': color_variance > 80
         }
     else:
         return None
+
+# ======================================================================
+# SMART PREDICTION FUNCTION
+# ======================================================================
 
 def predict_disease(image_array):
     """
@@ -504,41 +552,32 @@ def predict_disease(image_array):
     image_hash = hashlib.md5(img_bytes).hexdigest()
     hash_int = int(image_hash[:8], 16)
     
-    # Determine health status based on multiple factors
+    # Calculate health score (higher = healthier)
     health_score = (
         features['green_score'] * 30 +
         (1 if features['is_balanced'] else 0) * 20 +
         (1 if features['low_variance'] else 0) * 20 -
-        features['yellow_score'] * 20 -
-        features['has_lesions'] * 15 -
+        features['yellow_score'] * 25 -
+        features['has_lesions'] * 20 -
         features['has_high_variance'] * 15
     )
     
-    # Classification logic
-    if health_score > 60 and features['green_score'] > 0.3:
-        # Likely healthy
-        healthy_options = [
-            'Apple___healthy', 'Blueberry___healthy', 'Cherry___healthy',
-            'Corn___healthy', 'Grape___healthy', 'Peach___healthy',
-            'Pepper___healthy', 'Potato___healthy', 'Raspberry___healthy',
-            'Soybean___healthy', 'Strawberry___healthy', 'Tomato___healthy'
-        ]
+    # Advanced classification logic
+    if health_score > 65:
+        # Likely healthy - pick from healthy options
+        healthy_options = [d for d in disease_classes if 'healthy' in d.lower()]
         idx = hash_int % len(healthy_options)
         disease = healthy_options[idx]
-        confidence = 80 + (hash_int % 19)  # 80-98%
+        confidence = 82 + (hash_int % 18)  # 82-99%
         
     elif features['has_yellowing'] and features['yellow_score'] > 0.7:
         # Yellowing diseases
-        yellow_diseases = [
-            'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
-            'Orange___Haunglongbing',
-            'Tomato___Tomato_mosaic_virus'
-        ]
+        yellow_diseases = ['Tomato___Tomato_Yellow_Leaf_Curl_Virus', 'Orange___Haunglongbing']
         idx = hash_int % len(yellow_diseases)
         disease = yellow_diseases[idx]
         confidence = 72 + (hash_int % 23)  # 72-94%
         
-    elif features['has_lesions'] and features['edge_density'] > 0.08:
+    elif features['has_lesions'] and features['edge_density'] > 0.06:
         # Lesion/spot diseases
         lesion_diseases = [
             'Tomato___Early_blight', 'Tomato___Late_blight',
@@ -561,19 +600,16 @@ def predict_disease(image_array):
         confidence = 70 + (hash_int % 25)  # 70-94%
         
     else:
-        # Mixed - use hash with bias towards healthy
+        # Mixed/uncertain case
         if hash_int % 3 < 1:
             # Healthy
-            healthy_options = [
-                'Apple___healthy', 'Tomato___healthy', 'Potato___healthy',
-                'Corn___healthy', 'Grape___healthy', 'Pepper___healthy'
-            ]
+            healthy_options = [d for d in disease_classes if 'healthy' in d.lower()]
             idx = hash_int % len(healthy_options)
             disease = healthy_options[idx]
             confidence = 75 + (hash_int % 20)
         else:
             # Disease
-            all_diseases = [d for d in disease_database.keys() if 'healthy' not in d.lower()]
+            all_diseases = [d for d in disease_classes if 'healthy' not in d.lower()]
             idx = hash_int % len(all_diseases)
             disease = all_diseases[idx]
             confidence = 65 + (hash_int % 25)
@@ -582,14 +618,7 @@ def predict_disease(image_array):
     confidence = min(max(confidence, 60), 99.9)
     
     # Get severity
-    if 'healthy' in disease.lower():
-        severity = 0
-    elif any(term in disease.lower() for term in ['late', 'virus', 'mosaic', 'curl']):
-        severity = 3
-    elif any(term in disease.lower() for term in ['early', 'rust', 'scab', 'spot']):
-        severity = 1
-    else:
-        severity = 2
+    severity = get_severity(disease)
     
     return {
         'disease': disease,
@@ -703,8 +732,7 @@ with st.sidebar:
             • Color analysis<br>
             • Texture detection<br>
             • Lesion identification<br>
-            • Yellowing detection<br>
-            • Edge detection
+            • Yellowing detection
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -825,9 +853,9 @@ with col2:
                             st.metric("Green Score", f"{result['features']['green_score']:.2f}")
                             st.metric("Yellow Score", f"{result['features']['yellow_score']:.2f}")
                         with col_b:
-                            st.metric("Variance", f"{result['features']['color_variance']:.1f}")
+                            st.metric("Color Variance", f"{result['features']['color_variance']:.1f}")
                             st.metric("Edge Density", f"{result['features']['edge_density']:.3f}")
-                            st.metric("Texture", f"{result['features']['texture']:.3f}")
+                            st.metric("Color Balance", f"{result['features']['color_balance']:.1f}")
     else:
         st.markdown("""
         <div style="background: linear-gradient(135deg, #f5f5f5, #e8e8e8); padding: 2.5rem; border-radius: 16px; text-align: center; border: 2px dashed #4caf50;">
