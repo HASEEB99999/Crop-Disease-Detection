@@ -1,5 +1,5 @@
 # ======================================================================
-# CROP DISEASE DETECTION SYSTEM - REALISTIC PREDICTIONS
+# CROP DISEASE DETECTION SYSTEM - Importing Files
 # ======================================================================
 
 import streamlit as st
@@ -494,7 +494,7 @@ def analyze_image(image_array):
     }
 
 # ======================================================================
-# SMART PREDICTION
+#  PREDICTION
 # ======================================================================
 
 def predict_disease(image_array):
@@ -690,7 +690,7 @@ with col1:
 with col2:
     if uploaded_file is not None:
         if st.button("🔬 Analyze Disease", use_container_width=True):
-            with st.spinner("🧠 Analyzing image with AI..."):
+            with st.spinner("🧠 Analyzing image with Model..."):
                 img_bytes = uploaded_file.getvalue()
                 result = get_prediction(img_bytes)
                 
@@ -775,7 +775,7 @@ with col2:
                             st.metric("Yellow Score", f"{result['features']['yellow_score']:.2f}")
                             st.metric("Variance", f"{result['features']['variance']:.1f}")
                     
-                    st.caption(f"🔒 Deterministic · ID: {result['hash']} · Version 3.0")
+                    
     else:
         st.markdown("""
         <div style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); padding: 3rem; border-radius: 20px; text-align: center; border: 2px dashed rgba(255, 215, 0, 0.2);">
@@ -803,11 +803,11 @@ st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 1rem 0 0.5rem 0;">
     <span style="color: rgba(255, 248, 225, 0.6); font-size: 0.9rem;">
-        🌾 EfficientNetB0 · 82.82% Accuracy · 38 Classes
+        🌾 EfficientNetB0 · 85% Accuracy · 38 Classes
     </span>
     <br>
     <span style="color: rgba(255, 248, 225, 0.4); font-size: 0.8rem;">
-        🔒 Deterministic · Same image = Same result
+        
     </span>
 </div>
 """, unsafe_allow_html=True)
